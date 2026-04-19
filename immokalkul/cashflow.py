@@ -84,9 +84,18 @@ def run(scenario: Scenario) -> ScenarioResult:
                 (l.annual_eur for l in cost_lines if l.name == "Vacancy risk"), 0)
             op_costs = (total_costs_yr1 - vacancy_in_costs) \
                 * (1 + s.globals.cost_inflation_annual) ** (yr - 1)
+            avoided_rent = 0.0
         else:
             rent_net = 0.0
             op_costs = total_costs_yr1 * (1 + s.globals.cost_inflation_annual) ** (yr - 1)
+            # Live mode imputed income: rent the household avoids by owning
+            # (current all-in Warmmiete). Escalated by general cost inflation
+            # — the same rate operating costs use. Zero when the field isn't
+            # set, which preserves historical behaviour for scenarios that
+            # don't populate it.
+            current_warm = s.live.current_monthly_rent_warm_eur or 0.0
+            avoided_rent = current_warm * 12 \
+                * (1 + s.globals.cost_inflation_annual) ** (yr - 1)
 
         # Capex this year (calendar year math)
         cal_year = s.globals.today_year + yr - 1
@@ -96,8 +105,8 @@ def run(scenario: Scenario) -> ScenarioResult:
 
         tax_yr = float(tax["tax_owed"].iloc[yr - 1])
 
-        # Net cash from property
-        net_property = rent_net - loan_payment - op_costs - capex_yr - tax_yr
+        # Net cash from property — avoided rent is imputed income in live mode
+        net_property = rent_net + avoided_rent - loan_payment - op_costs - capex_yr - tax_yr
         # Total wealth change including unrelated savings
         other_savings = s.globals.additional_monthly_savings * 12
         net_wealth_change = net_property + other_savings
@@ -107,6 +116,7 @@ def run(scenario: Scenario) -> ScenarioResult:
             "year": yr,
             "calendar_year": cal_year,
             "rent_net": rent_net,
+            "avoided_rent": avoided_rent,
             "loan_payment": loan_payment,
             "op_costs": op_costs,
             "capex": capex_yr,

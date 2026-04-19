@@ -57,3 +57,64 @@ def test_bonn_is_pre_1925_afa_rate(bonn_scenario) -> None:
     r = run(bonn_scenario)
     assert r.afa_basis.afa_rate == pytest.approx(0.025)
     assert r.afa_basis.useful_life_years == 40
+
+
+def test_rent_mode_avoided_rent_is_zero(bonn_scenario) -> None:
+    """Rent mode never credits avoided rent, regardless of live-mode field."""
+    bonn_scenario.mode = "rent"
+    bonn_scenario.live.current_monthly_rent_warm_eur = 1_800
+    r = run(bonn_scenario)
+    assert "avoided_rent" in r.cashflow.columns
+    assert (r.cashflow["avoided_rent"] == 0).all()
+
+
+def test_live_mode_avoided_rent_zero_when_unset(bonn_scenario) -> None:
+    """Live mode keeps the legacy behaviour if the field is left at 0."""
+    bonn_scenario.mode = "live"
+    bonn_scenario.live.current_monthly_rent_warm_eur = 0.0
+    r = run(bonn_scenario)
+    assert (r.cashflow["avoided_rent"] == 0).all()
+
+
+def test_live_mode_credits_avoided_rent_year_one(bonn_scenario) -> None:
+    """Year 1 avoided_rent = 12 × monthly (no escalation yet)."""
+    bonn_scenario.mode = "live"
+    bonn_scenario.live.current_monthly_rent_warm_eur = 1_800
+    r = run(bonn_scenario)
+    yr1 = r.cashflow.iloc[0]
+    assert yr1["avoided_rent"] == pytest.approx(1_800 * 12)
+
+
+def test_live_mode_avoided_rent_escalates_with_inflation(bonn_scenario) -> None:
+    """Avoided rent escalates by cost_inflation_annual, same as op costs."""
+    bonn_scenario.mode = "live"
+    bonn_scenario.live.current_monthly_rent_warm_eur = 1_000
+    bonn_scenario.globals.cost_inflation_annual = 0.02
+    r = run(bonn_scenario)
+    yr1 = r.cashflow["avoided_rent"].iloc[0]
+    yr10 = r.cashflow["avoided_rent"].iloc[9]
+    assert yr10 == pytest.approx(yr1 * 1.02 ** 9)
+
+
+def test_live_mode_cumulative_lifts_when_rent_is_credited(bonn_scenario) -> None:
+    """With avoided rent set, the live-mode cumulative must be materially
+    higher than with it at 0 — exactly by the escalated sum of the credit
+    (since nothing else in the cashflow changes)."""
+    from copy import deepcopy
+    s_unset = deepcopy(bonn_scenario)
+    s_unset.mode = "live"
+    s_unset.live.current_monthly_rent_warm_eur = 0.0
+
+    s_set = deepcopy(bonn_scenario)
+    s_set.mode = "live"
+    s_set.live.current_monthly_rent_warm_eur = 1_800.0
+
+    r_unset = run(s_unset)
+    r_set = run(s_set)
+
+    final_unset = float(r_unset.cashflow["cumulative"].iloc[-1])
+    final_set = float(r_set.cashflow["cumulative"].iloc[-1])
+    credited = float(r_set.cashflow["avoided_rent"].sum())
+
+    assert credited > 0
+    assert final_set == pytest.approx(final_unset + credited, abs=1.0)

@@ -231,7 +231,7 @@ For the full bibliography of sources consulted (AfA, Petersche Formel, component
 
 - **Property value appreciation** — equity built through amortization is shown via cumulative cash flow, but no market price growth is assumed. Historical Bonn appreciation has been ~3-5%/yr; if you want to factor it in, multiply the building value by `(1 + g)^n` mentally
 - **Loss carryforward against other income** — German rules let rental losses reduce overall tax bill in early years; this model floors annual tax at €0, which under-counts tax savings in early years for rent mode
-- **Cost of equivalent rental in live mode** — when you live in a place you own, you save the rent you'd otherwise pay. The model doesn't credit this, so live mode looks artificially worse than rent mode in the cumulative wealth chart. To compare apples-to-apples, mentally add `equivalent_monthly_rent × 12 × n_years` to the live cumulative line
+- **Cost of equivalent rental in live mode** — when you live in a place you own, you save the rent you'd otherwise pay. Set `current_monthly_rent_warm_eur` on `LiveParameters` (or the "Current rent you pay now" sidebar field) and the engine credits it as imputed income in the cash flow, escalated by `cost_inflation_annual`. Leave the field at 0 to keep the legacy "no credit" behaviour
 - **Sonderumlagen (WEG special assessments)** — modeled implicitly through the maintenance reserve, which assumes reserves are sufficient to cover them
 - **Denkmal-AfA (§7i EStG)** — flag exists in the property model but the special 9%/7% scheme isn't yet implemented
 - **§7b Sonder-AfA for new builds** — not modeled
@@ -278,7 +278,7 @@ immokalkul/
 
 **Capex schedule shows everything bunched at year 19**: that's because the model assumes everything was last replaced at `year_built` (1904 in the sample). The math is `1904 + N × component_lifetime`, so for a 20-year-lifetime component the next replacement falls at 2024 → recomputed forward to 2044 → year offset 19. Set `year_last_major_renovation` if a Kernsanierung happened, or add specific entries via the user capex editor for items you have real information about.
 
-**Live mode shows -€1.4M cumulative — am I really losing that much?**: no. The model isn't crediting you for not paying rent (see Caveats). You're paying loan + costs + capex over 50 years which is ~€1.7M in nominal terms; offsetting that with avoided rent of ~€1,500-2,000/month over 50 years is ~€900-1,200k. Net is closer to break-even, sometimes positive. The tool helps you see the cost stream; the comparison to renting needs your own arithmetic for now.
+**Live mode shows a big negative cumulative — am I really losing that much?**: only if you leave the "Current rent you pay now (warm, €/mo)" field at 0. That field is the all-in rent (Warmmiete + utilities) you avoid by owning; when set, the engine credits it as imputed income in the cash flow, escalated by `cost_inflation_annual`. With a realistic figure set, live and rent mode can be compared apples-to-apples.
 
 **Streamlit deprecation warnings appear**: Streamlit changes API frequently. The code currently targets Streamlit 1.30+. If you upgrade Streamlit and see new deprecation warnings, they're harmless until removal — fix at leisure.
 

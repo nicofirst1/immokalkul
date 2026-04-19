@@ -822,13 +822,21 @@ def tab_compare(result_live, result_rent, s: Scenario):
                "watch where the two lines cross over.")
 
     st.markdown("### Year-1 monthly cash flow")
-    cmp_df = pd.DataFrame([
+    live_avoided = cf_live.get("avoided_rent", pd.Series([0.0])).iloc[0]
+    rent_avoided = cf_rent.get("avoided_rent", pd.Series([0.0])).iloc[0]
+    rows = [
         ("Loan payment",     cf_live["loan_payment"].iloc[0] / 12,  cf_rent["loan_payment"].iloc[0] / 12),
         ("Operating costs",  cf_live["op_costs"].iloc[0] / 12,      cf_rent["op_costs"].iloc[0] / 12),
         ("Tax",              cf_live["tax_owed"].iloc[0] / 12,      cf_rent["tax_owed"].iloc[0] / 12),
         ("Rent income",     -cf_live["rent_net"].iloc[0] / 12,     -cf_rent["rent_net"].iloc[0] / 12),
-        ("Net cash burden", -cf_live["net_property"].iloc[0] / 12, -cf_rent["net_property"].iloc[0] / 12),
-    ], columns=["Item", "Live (€/mo)", "Rent (€/mo)"])
+    ]
+    if live_avoided > 0 or rent_avoided > 0:
+        rows.append(("Avoided rent (imputed)",
+                     -live_avoided / 12, -rent_avoided / 12))
+    rows.append(("Net cash burden",
+                 -cf_live["net_property"].iloc[0] / 12,
+                 -cf_rent["net_property"].iloc[0] / 12))
+    cmp_df = pd.DataFrame(rows, columns=["Item", "Live (€/mo)", "Rent (€/mo)"])
     cmp_df_display = cmp_df.copy()
     for col in ["Live (€/mo)", "Rent (€/mo)"]:
         cmp_df_display[col] = cmp_df_display[col].apply(lambda x: eur(x, 0))
@@ -857,6 +865,10 @@ def tab_cashflow(result, s: Scenario):
     fig = go.Figure()
     fig.add_trace(go.Bar(x=cf.index, y=cf["rent_net"], name="Rent income",
                           marker_color="#59A14F"))
+    if s.mode == "live" and "avoided_rent" in cf.columns and cf["avoided_rent"].sum() > 0:
+        fig.add_trace(go.Bar(x=cf.index, y=cf["avoided_rent"],
+                              name="Avoided rent (imputed)",
+                              marker_color="#8CD17D"))
     fig.add_trace(go.Bar(x=cf.index, y=-cf["loan_payment"], name="Loan payment",
                           marker_color="#E15759"))
     fig.add_trace(go.Bar(x=cf.index, y=-cf["op_costs"], name="Operating costs",
@@ -890,16 +902,22 @@ def tab_cashflow(result, s: Scenario):
                "back; negative = it costs more than it earns, cumulatively.")
 
     with st.expander("📊 Year-by-year table"):
-        display = cf[["calendar_year", "rent_net", "loan_payment", "op_costs",
-                       "capex", "tax_owed", "net_property", "cumulative"]].copy()
-        display.columns = ["Cal yr", "Rent net", "Loan", "Op costs",
-                            "Capex", "Tax", "Net property", "Cumulative"]
-        st.dataframe(display.style.format({
-            "Cal yr": "{:.0f}",
-            "Rent net": "€{:,.0f}", "Loan": "€{:,.0f}", "Op costs": "€{:,.0f}",
-            "Capex": "€{:,.0f}", "Tax": "€{:,.0f}",
-            "Net property": "€{:,.0f}", "Cumulative": "€{:,.0f}",
-        }), width="stretch", height=400)
+        cols = ["calendar_year", "rent_net"]
+        labels = ["Cal yr", "Rent net"]
+        if s.mode == "live" and cf.get("avoided_rent", pd.Series([0])).sum() > 0:
+            cols.append("avoided_rent")
+            labels.append("Avoided rent")
+        cols += ["loan_payment", "op_costs", "capex", "tax_owed",
+                 "net_property", "cumulative"]
+        labels += ["Loan", "Op costs", "Capex", "Tax",
+                   "Net property", "Cumulative"]
+        display = cf[cols].copy()
+        display.columns = labels
+        fmt = {"Cal yr": "{:.0f}"}
+        for c in labels[1:]:
+            fmt[c] = "€{:,.0f}"
+        st.dataframe(display.style.format(fmt),
+                      width="stretch", height=400)
 
 
 def tab_costs(result, s: Scenario):
