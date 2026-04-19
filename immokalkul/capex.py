@@ -25,39 +25,51 @@ class ComponentSchedule:
     next_replacement_year: int           # absolute calendar year
     estimated_cost_eur: float
     cost_basis: str
+    lifetime_years: int = 0              # kept so the Capex tab can derive
+                                         # the steady-state annual reserve
+                                         # (cost / lifetime_years) shown as
+                                         # the smoothed line on the chart
+    scope: str = "se_individual"         # "we_building" vs. "se_individual"
     note: str = ""
 
 
 def estimate_component_cost(component, p: Property) -> float:
-    """Mid-point cost estimate for a component, scaled by property metrics."""
+    """Mid-point cost estimate for a component, scaled by property metrics.
+
+    For apartments, components flagged scope='we_building' (Gemeinschafts-
+    eigentum) are reduced by WEG_SHARE_APARTMENT because the WEG's
+    Erhaltungsrücklage — already funded via monthly Hausgeld in the
+    operating costs — pays the rest. This avoids the big double-counted
+    spike that earlier versions produced for multi-family items like
+    heating.
+    """
     midpoint_per_unit = (component.cost_low + component.cost_high) / 2
     cb = component.cost_basis
     if cb == "flat":
-        return midpoint_per_unit
+        cost = midpoint_per_unit
     elif cb == "per_m2_living":
-        return midpoint_per_unit * p.living_space_m2
+        cost = midpoint_per_unit * p.living_space_m2
     elif cb == "per_m2_roof":
-        # Rough estimate: roof area ~= 1.3 × footprint of top floor ~= 0.8 × living
-        # for an apartment within a multi-family building, your share is much smaller
-        roof_area = p.living_space_m2 * 1.0
-        if p.property_type == "apartment":
-            roof_area *= 0.10  # WEG share, rough
-        return midpoint_per_unit * roof_area
+        # Roof area ~= 1.0 × footprint-of-top-floor ≈ living for a SFH.
+        cost = midpoint_per_unit * p.living_space_m2
     elif cb == "per_m2_facade":
-        # Façade area ~= 2.5 × living for a typical multi-storey
-        facade = p.living_space_m2 * 2.5
-        if p.property_type == "apartment":
-            facade *= 0.15  # WEG share
-        return midpoint_per_unit * facade
+        # Façade area ~= 2.5 × living for a typical multi-storey.
+        cost = midpoint_per_unit * p.living_space_m2 * 2.5
     elif cb == "per_window":
-        # Estimate windows: 1 per ~10 m² of living for older buildings
+        # Estimate windows: 1 per ~10 m² of living for older buildings.
         n_windows = max(1, int(p.living_space_m2 / 10))
-        return midpoint_per_unit * n_windows
+        cost = midpoint_per_unit * n_windows
     elif cb == "per_bathroom":
-        # Estimate 1 bathroom per 60 m², minimum 1
+        # Estimate 1 bathroom per 60 m², minimum 1.
         n = max(1, int(p.living_space_m2 / 60))
-        return midpoint_per_unit * n
-    return midpoint_per_unit
+        cost = midpoint_per_unit * n
+    else:
+        cost = midpoint_per_unit
+
+    scope = getattr(component, "scope", "se_individual")
+    if p.property_type == "apartment" and scope == "we_building":
+        cost *= rules_de.WEG_SHARE_APARTMENT
+    return cost
 
 
 def auto_schedule(p: Property,
@@ -88,6 +100,8 @@ def auto_schedule(p: Property,
             next_replacement_year=next_year,
             estimated_cost_eur=cost,
             cost_basis=comp.cost_basis,
+            lifetime_years=comp.lifetime_years,
+            scope=getattr(comp, "scope", "se_individual"),
             note=comp.notes,
         ))
     return schedule

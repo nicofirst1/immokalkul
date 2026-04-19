@@ -1129,10 +1129,37 @@ def tab_capex(result, s: Scenario):
 
     # Annual aggregate
     annual = df.groupby("Year")["Cost inflated (€)"].sum().reset_index()
-    fig2 = px.bar(annual, x="Year", y="Cost inflated (€)",
-                   title="Annual capex spending")
-    fig2.update_layout(height=300, yaxis_tickformat=",.0f")
+    # Steady-state reserve — the flat annual amount you'd accrue if you
+    # saved `cost / lifetime` every year for each auto-scheduled component.
+    steady_reserve_yr = sum(
+        (s.estimated_cost_eur / s.lifetime_years)
+        for s in result.auto_capex
+        if s.lifetime_years > 0
+    )
+    fig2 = go.Figure()
+    fig2.add_trace(go.Bar(x=annual["Year"], y=annual["Cost inflated (€)"],
+                           name="Actual lumpy spend",
+                           marker_color="#4E79A7"))
+    if steady_reserve_yr > 0:
+        fig2.add_trace(go.Scatter(
+            x=annual["Year"], y=[steady_reserve_yr] * len(annual),
+            name=f"Smoothed reserve ({eur(steady_reserve_yr)}/yr)",
+            mode="lines",
+            line=dict(color="#E15759", width=2, dash="dash")))
+    fig2.update_layout(height=320, yaxis_tickformat=",.0f",
+                        title="Annual capex — lumpy actual vs. smoothed reserve",
+                        hovermode="x unified",
+                        xaxis_title="Year", yaxis_title="€ per year")
     st.plotly_chart(fig2, width="stretch")
+    st.caption(
+        f"**Blue bars** = what you actually pay in each year (components "
+        f"cluster because multiple systems share the same installation age). "
+        f"**Red dashed line** = {eur(steady_reserve_yr)}/yr — the flat annual "
+        f"amount a prudent owner would accrue into a reserve (`Σ cost / "
+        f"lifetime` across components). This is also roughly what the "
+        f"**Maintenance reserve** line in Operating costs is supposed to "
+        f"fund; for an apartment, the WEG's Erhaltungsrücklage pays the "
+        f"Gemeinschaftseigentum portion out of Hausgeld.")
 
     # Detail table
     st.dataframe(df.style.format({

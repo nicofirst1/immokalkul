@@ -28,13 +28,16 @@ def test_bonn_reference_cumulative(bonn_result) -> None:
     """Guard against accidental engine drift: the Bonn sample must keep
     reproducing the long-established 50-year cumulative, within ±€1.
 
-    Pinned value reflects full Verlustverrechnung on rental losses against
-    salary at the marginal rate (§ 10d EStG). Previous pin €405,936 was from
-    the pre-fix model that floored annual tax at €0 and therefore undercounted
-    rent-mode tax shield by ~€95k over 50 years.
+    Pinned value reflects:
+    - Verlustverrechnung on rental losses offsetting salary at the marginal
+      rate (§ 10d EStG). Pre-fix pin €405,936 floored tax at €0.
+    - Apartment WEG share on Gemeinschaftseigentum capex items (heating,
+      roof, façade, plumbing risers) — the WEG's Erhaltungsrücklage funds
+      ~85 % of those costs via Hausgeld, so counting them 100 % against the
+      owner was double-counting. Pre-fix pin €500,507 over-charged.
     """
     final = float(bonn_result.cashflow["cumulative"].iloc[-1])
-    assert final == pytest.approx(500_507, abs=1)
+    assert final == pytest.approx(525_196, abs=1)
 
 
 def test_horizon_respected(bonn_scenario) -> None:

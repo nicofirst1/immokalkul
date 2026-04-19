@@ -139,29 +139,49 @@ class Component:
     cost_basis: str                # "per_m2_living", "flat", "per_m2_roof", etc.
     cost_low: float                # low-end EUR estimate
     cost_high: float               # high-end EUR estimate
+    scope: str = "se_individual"   # "we_building" = Gemeinschaftseigentum
+                                   # (apartment owner's share ≈ WEG_SHARE_APARTMENT
+                                   # of the full figure); "se_individual" =
+                                   # Sondereigentum (individual owner pays full)
     notes: str = ""
+
+
+# Typical user's share of a Mehrfamilienhaus WEG (6-8 units → 12-17 %);
+# applied to Gemeinschaftseigentum items for apartments.
+WEG_SHARE_APARTMENT = 0.15
 
 
 COMPONENTS = [
     Component("Heating system (boiler)", 20, "flat", 12000, 25000,
-              "GEG mandates replacement >30yr. Heat pump retrofit may push higher."),
+              scope="we_building",
+              notes="GEG mandates replacement >30yr. Heat pump retrofit may push higher."),
     Component("Roof covering", 40, "per_m2_roof", 100, 250,
-              "Tile/copper roofs last longest; tar paper much less."),
-    Component("Façade paint", 12, "per_m2_facade", 30, 60, ""),
+              scope="we_building",
+              notes="Tile/copper roofs last longest; tar paper much less."),
+    Component("Façade paint", 12, "per_m2_facade", 30, 60,
+              scope="we_building"),
     Component("Façade insulation (WDVS)", 35, "per_m2_facade", 90, 250,
-              "WDVS most common; vorhängte Fassade more expensive."),
+              scope="we_building",
+              notes="WDVS most common; vorhängte Fassade more expensive."),
     Component("Windows (full replacement)", 30, "per_window", 800, 1500,
-              "Wood ~25-30yr, PVC/aluminum up to 40yr. Pre-1995 single-glazing urgent."),
+              scope="se_individual",
+              notes="Wood ~25-30yr, PVC/aluminum up to 40yr. Pre-1995 single-glazing urgent."),
     Component("Bathroom (renovation)", 28, "per_bathroom", 15000, 25000,
-              "Plumbing + tiles + fixtures together."),
+              scope="se_individual",
+              notes="Plumbing + tiles + fixtures together."),
     Component("Electrical system", 35, "per_m2_living", 80, 150,
-              "Pre-1990 systems often need full rewire; safety + capacity issues."),
+              scope="se_individual",
+              notes="Pre-1990 systems often need full rewire; safety + capacity issues."),
     Component("Plumbing (water/drain)", 45, "per_m2_living", 80, 200,
-              "Hidden in walls; expensive when it fails."),
-    Component("Floors (parquet/laminate refresh)", 25, "per_m2_living", 40, 120, ""),
+              scope="we_building",
+              notes="Risers are Gemeinschaftseigentum; in-unit plumbing is Sondereigentum — WEG share applied as a rough average."),
+    Component("Floors (parquet/laminate refresh)", 25, "per_m2_living", 40, 120,
+              scope="se_individual"),
     Component("Kitchen (full replacement)", 20, "flat", 10000, 25000,
-              "Owner-occupier expense in live mode; landlord may not provide."),
-    Component("Interior renovation (paint, doors)", 15, "per_m2_living", 30, 80, ""),
+              scope="se_individual",
+              notes="Owner-occupier expense in live mode; landlord may not provide."),
+    Component("Interior renovation (paint, doors)", 15, "per_m2_living", 30, 80,
+              scope="se_individual"),
 ]
 
 
