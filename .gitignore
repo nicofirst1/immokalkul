@@ -26,3 +26,4 @@ env/
 
 # Local scenario overrides (uncomment if you want private YAMLs kept out of git)
 # data/private_*.yaml
+audit/
