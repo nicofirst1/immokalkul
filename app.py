@@ -243,7 +243,7 @@ def sidebar_inputs():
             loans_df = pd.DataFrame([{
                 "Name": l.name,
                 "Principal (€)": l.principal,
-                "Rate": l.interest_rate,
+                "Rate (%)": l.interest_rate * 100,
                 "Monthly (€)": l.monthly_payment,
                 "Annuity?": l.is_annuity,
                 "Adaptive?": l.is_adaptive,
@@ -252,7 +252,7 @@ def sidebar_inputs():
                 loans_df, num_rows="dynamic", key="loans_editor",
                 column_config={
                     "Principal (€)": st.column_config.NumberColumn(format="%.0f"),
-                    "Rate": st.column_config.NumberColumn(format="%.4f", step=0.001),
+                    "Rate (%)": st.column_config.NumberColumn(format="%.3f", step=0.1),
                     "Monthly (€)": st.column_config.NumberColumn(format="%.2f"),
                     "Annuity?": st.column_config.CheckboxColumn(),
                     "Adaptive?": st.column_config.CheckboxColumn(),
@@ -264,8 +264,7 @@ def sidebar_inputs():
                     "- **Name** — free-text label (Bank, LBS, Mamma, …) "
                     "shown in charts and summary tables.\n"
                     "- **Principal (€)** — amount borrowed at closing.\n"
-                    "- **Rate** — annual interest rate as a decimal "
-                    "(e.g. `0.034` = 3.4 %).\n"
+                    "- **Rate (%)** — annual interest rate (e.g. `3.4` = 3.4 %).\n"
                     "- **Monthly (€)** — fixed monthly payment. For an "
                     "Annuitätendarlehen this is principal × (rate + Tilgung) "
                     "/ 12. For an adaptive loan it's the **minimum** — the "
@@ -285,7 +284,7 @@ def sidebar_inputs():
                     new_loans.append(Loan(
                         name=str(row["Name"]),
                         principal=float(row["Principal (€)"] or 0),
-                        interest_rate=float(row["Rate"] or 0),
+                        interest_rate=float(row["Rate (%)"] or 0) / 100,
                         monthly_payment=float(row["Monthly (€)"] or 0),
                         is_annuity=bool(row["Annuity?"]),
                         is_adaptive=bool(row.get("Adaptive?", False)),
@@ -319,10 +318,11 @@ def sidebar_inputs():
                 help="Separate rent for a parking spot / Tiefgarage, if any. "
                      "Leave 0 if parking isn't part of the lease.")
             s.rent.annual_rent_escalation = st.slider(
-                "Annual rent escalation", 0.0, 0.05,
-                value=float(s.rent.annual_rent_escalation), step=0.005, format="%.1f%%",
+                "Annual rent escalation", 0.0, 5.0,
+                value=float(s.rent.annual_rent_escalation) * 100,
+                step=0.1, format="%.1f%%",
                 help="Assumed yearly rent growth. German rents are capped by "
-                     "Mietspiegel / Mietpreisbremse — 1.5-2.5% is typical.")
+                     "Mietspiegel / Mietpreisbremse — 1.5-2.5% is typical.") / 100
             s.rent.expected_vacancy_months_per_year = st.slider(
                 "Vacancy (months/year)", 0.0, 3.0,
                 value=float(s.rent.expected_vacancy_months_per_year), step=0.05,
@@ -336,11 +336,12 @@ def sidebar_inputs():
                      "a single unit you know well.")
             if s.rent.has_property_manager:
                 s.rent.property_manager_pct_of_rent = st.slider(
-                    "Manager fee (% of rent)", 0.0, 0.10,
-                    value=float(s.rent.property_manager_pct_of_rent), step=0.005, format="%.1f%%",
+                    "Manager fee (% of rent)", 0.0, 10.0,
+                    value=float(s.rent.property_manager_pct_of_rent) * 100,
+                    step=0.1, format="%.1f%%",
                     help="Monthly fee as a share of gross rent. German market "
                          "range: 4-8% for a single unit, sometimes a flat "
-                         "€25-40/month instead. Fully deductible in rent mode.")
+                         "€25-40/month instead. Fully deductible in rent mode.") / 100
 
         # --- Live params ---
         with st.expander("🛏 Live parameters", expanded=False):
@@ -382,12 +383,14 @@ def sidebar_inputs():
                 help="Retail electricity price per kWh. Typical 2025 German "
                      "Grundversorger rate: €0.32-0.40 (Ökostrom tariffs "
                      "€0.28-0.35). Only used in live mode for Nebenkosten.")
-            c.grundsteuer_rate_of_price = st.number_input("Property tax rate (Grundsteuer, % of price)",
-                value=float(c.grundsteuer_rate_of_price), step=0.0001, format="%.4f",
+            c.grundsteuer_rate_of_price = st.slider(
+                "Property tax rate (Grundsteuer, % of price)", 0.0, 1.0,
+                value=float(c.grundsteuer_rate_of_price) * 100,
+                step=0.01, format="%.2f%%",
                 help="Property tax as a share of purchase price. Since the "
                      "2025 Grundsteuer reform, the Bundesmodell roughly lands "
                      "between 0.15% and 0.35% of market value depending on "
-                     "Bundesland + Hebesatz. 0.2% is a reasonable default.")
+                     "Bundesland + Hebesatz. 0.2% is a reasonable default.") / 100
             c.hausgeld_monthly_for_rent = st.number_input("Building fee (Hausgeld) — €/mo, rent mode",
                 value=float(c.hausgeld_monthly_for_rent), step=10.0, format="%.0f",
                 help="Monthly WEG fee covering Gemeinschaftseigentum "
@@ -433,18 +436,20 @@ def sidebar_inputs():
                      "property. Used for the cumulative-wealth line so the "
                      "chart shows property vs total household wealth.")
             g.cost_inflation_annual = st.slider(
-                "Cost inflation (annual)", 0.0, 0.06,
-                value=float(g.cost_inflation_annual), step=0.005, format="%.1f%%",
+                "Cost inflation (annual)", 0.0, 6.0,
+                value=float(g.cost_inflation_annual) * 100,
+                step=0.1, format="%.1f%%",
                 help="Yearly escalation applied to operating costs and capex. "
                      "**Default 2%** = ECB price-stability target and German "
                      "long-run CPI anchor (Destatis 10-year average 2014-2024 "
                      "≈ 2.5% incl. 2022-2023 spike). Bump to 3% if you think "
-                     "the 2022+ regime shift persists.")
+                     "the 2022+ regime shift persists.") / 100
             g.marginal_tax_rate = st.slider(
-                "Marginal tax rate (Grenzsteuersatz)", 0.10, 0.55,
-                value=float(g.marginal_tax_rate), step=0.01, format="%.0f%%",
+                "Marginal tax rate (Grenzsteuersatz)", 10.0, 55.0,
+                value=float(g.marginal_tax_rate) * 100,
+                step=1.0, format="%.0f%%",
                 help="Your top German income-tax rate. Roughly 30% at €35k, "
-                     "42% above €68k single.")
+                     "42% above €68k single.") / 100
             g.horizon_years = int(st.slider(
                 "Horizon (years)", 10, 60, value=int(g.horizon_years),
                 help="How far out to project. **50 years is the convention** "
