@@ -26,7 +26,6 @@ property:
 
 financing:
   initial_capital: 150000
-  adaptive_mamma: false
   debt_budget_monthly: 2300
   loans:
     - name: Bank
@@ -34,6 +33,7 @@ financing:
       interest_rate: 0.036
       monthly_payment: 2268.75     # 495000 × (0.036 + 0.019) / 12
       is_annuity: true
+      is_adaptive: false
 
 costs:
   gas_price_eur_per_kwh: 0.11

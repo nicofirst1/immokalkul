@@ -5,18 +5,18 @@ Single source of truth for everything legally / empirically defined.
 Each constant is cited so it can be verified later. When tax law changes,
 this is the only file that needs touching.
 
-Sources:
-- Finanzamt NRW: https://www.finanzamt.nrw.de/steuerinfos/privatpersonen/haus-und-grund/so-ermitteln-sie-die-abschreibung-fuer-ihr
+Primary legal sources:
 - AfA rules: § 7 Abs. 4 EStG (Einkommensteuergesetz)
+- Anschaffungsnaher Aufwand: § 6 Abs. 1 Nr. 1a EStG, BFH 9.5.2017 IX R 6/16
+- WEG-Reform 2020: § 19 Abs. 2 Nr. 4 WEG (Erhaltungsrücklage)
+- II. Berechnungsverordnung: § 28 Abs. 2 II. BV (age-based reserve table)
 - Petersche Formel: Heinz Peters, "Instandhaltung und Instandsetzung von
   Wohnungseigentum", Bauverlag 1984
-- WEG-Reform 2020: § 19 Abs. 2 Nr. 4 WEG (Erhaltungsrücklage)
-- II. Berechnungsverordnung: §28 Abs. 2 II. BV (age-based reserve table)
-- Component lifecycles: HEV / Mieterverband paritätische Lebensdauertabelle,
-  Sparkasse Lebensdauer-Übersicht
-- Bodenrichtwert Bonn-Poppelsdorf 2024: bodenrichtwert-bonn.de,
-  €1,000-1,600/m² range (verified Jan 2026)
-- Anschaffungsnaher Aufwand: § 6 Abs. 1 Nr. 1a EStG, BFH 9.5.2017 IX R 6/16
+- Component lifecycles: HEV / Mieterverband paritätische Lebensdauertabelle
+- Bodenrichtwert Bonn-Poppelsdorf 2024: €1,000-1,600/m² range (verified Jan 2026)
+
+Verification sources (where the above interpretations were confirmed), with a
+reliability ranking and caveats, are listed in REFERENCES.md at the repo root.
 """
 from __future__ import annotations
 from dataclasses import dataclass

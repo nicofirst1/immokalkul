@@ -46,23 +46,30 @@ class Loan:
     name: str
     principal: float                       # EUR borrowed
     interest_rate: float                   # decimal annual rate (e.g. 0.034)
-    monthly_payment: float                 # EUR/month — for Annuität, this is
-                                           # principal*(r+t)/12 at year 1
+    monthly_payment: float                 # EUR/month — for Annuität this is the
+                                           # constant annuity; for fixed-payment
+                                           # loans it's the fixed payment; for
+                                           # adaptive loans it's the MINIMUM.
     is_annuity: bool = True                # German Annuitätendarlehen?
                                            # If False, it's a fixed-payment loan
-                                           # like LBS Bausparvertrag or Mamma.
+                                           # (LBS Bausparvertrag, family loan, …)
+    is_adaptive: bool = False              # if True, this loan absorbs freed-up
+                                           # debt-service capacity once other
+                                           # loans clear (uses debt_budget_monthly
+                                           # as the ceiling). Only meaningful on
+                                           # non-annuity loans.
 
 
 @dataclass
 class Financing:
     """Total financing structure for a property."""
-    initial_capital: float                 # cash deployed at closing (incl. LBS
-                                           # savings & Mamma proceeds)
+    initial_capital: float                 # cash deployed at closing (incl. any
+                                           # Bauspar savings and family loan
+                                           # proceeds used at closing)
     loans: list[Loan] = field(default_factory=list)
-    adaptive_mamma: bool = True            # if True, Mamma payment scales up
-                                           # once Bank/LBS clear (uses budget below)
-    debt_budget_monthly: float = 1745.0    # ceiling for total monthly debt service
-                                           # when adaptive Mamma is on
+    debt_budget_monthly: float = 1745.0    # ceiling for total monthly debt
+                                           # service; only used when at least one
+                                           # loan has is_adaptive=True
 
 
 @dataclass

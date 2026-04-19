@@ -23,20 +23,21 @@ property:
   listing_url: "https://www.immobilienscout24.de/expose/161172839"
 
 financing:
-  initial_capital: 200000      # cash deployed at closing (incl. LBS savings & Mamma)
-  adaptive_mamma: true         # Mamma payment scales up after Bank/LBS clear
-  debt_budget_monthly: 1745    # ceiling for total monthly debt service (adaptive)
+  initial_capital: 200000      # cash deployed at closing (incl. Bauspar savings & family-loan proceeds)
+  debt_budget_monthly: 1745    # ceiling for total monthly debt service — only used when a loan is adaptive
   loans:
     - name: LBS
       principal: 50000
       interest_rate: 0.007
       monthly_payment: 295
       is_annuity: false        # LBS Bausparvertrag is fixed-payment
+      is_adaptive: false
     - name: Mamma
       principal: 100000
       interest_rate: 0.0
-      monthly_payment: 100     # minimum; may be larger when adaptive
+      monthly_payment: 100     # MINIMUM; adaptive reallocation lifts it once other loans clear
       is_annuity: false
+      is_adaptive: true        # absorbs freed-up debt-service capacity
     - name: Bank
       principal: 299832.20     # Computed: total cost (€499,832) - initial capital (€200k)
                                # If you change initial_capital or fees, recompute or
@@ -44,6 +45,7 @@ financing:
       interest_rate: 0.034
       monthly_payment: 1349.24 # = principal × (rate + Tilgung) / 12 = 299832 × 0.054 / 12
       is_annuity: true
+      is_adaptive: false
 
 costs:
   gas_price_eur_per_kwh: 0.11

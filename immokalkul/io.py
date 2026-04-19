@@ -17,10 +17,19 @@ def load_scenario(path: str | Path) -> Scenario:
 
     prop = Property(**d["property"])
     loans = [Loan(**l) for l in d["financing"]["loans"]]
+
+    # Backward compat: legacy YAMLs had a top-level `adaptive_mamma` flag and
+    # hardcoded the adaptive loan by name. Migrate by flagging the loan named
+    # "Mamma" (if any) with is_adaptive=True.
+    legacy_adaptive = d["financing"].get("adaptive_mamma")
+    if legacy_adaptive:
+        for l in loans:
+            if l.name == "Mamma" and not l.is_adaptive:
+                l.is_adaptive = True
+
     fin = Financing(
         initial_capital=d["financing"]["initial_capital"],
         loans=loans,
-        adaptive_mamma=d["financing"].get("adaptive_mamma", True),
         debt_budget_monthly=d["financing"].get("debt_budget_monthly", 1745.0),
     )
     costs = CostInputs(**d["costs"])
@@ -49,7 +58,6 @@ def save_scenario(scenario: Scenario, path: str | Path) -> None:
         "property": _asdict(scenario.property),
         "financing": {
             "initial_capital": scenario.financing.initial_capital,
-            "adaptive_mamma": scenario.financing.adaptive_mamma,
             "debt_budget_monthly": scenario.financing.debt_budget_monthly,
             "loans": [_asdict(l) for l in scenario.financing.loans],
         },

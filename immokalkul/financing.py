@@ -5,7 +5,7 @@ Handles:
 - Total purchase cost build-up (price + fees + renovation)
 - Building / land split (for AfA basis)
 - 50-year amortization schedule for arbitrary loan tranches
-- Adaptive Mamma payment (accelerates once Bank/LBS clear)
+- Adaptive loan payments (accelerate once other loans clear)
 """
 from __future__ import annotations
 from dataclasses import dataclass
@@ -86,23 +86,24 @@ def amortization_schedule(financing: Financing, horizon_years: int) -> pd.DataFr
     plus total_payment, total_interest.
 
     For Annuität loans, the annual payment is constant at year 1's
-    `monthly_payment * 12`. For non-annuity loans (LBS, Mamma), payment is
+    `monthly_payment * 12`. For non-annuity loans, payment is
     `monthly_payment * 12` until the balance is gone.
 
-    Adaptive Mamma logic: if financing.adaptive_mamma is True AND a loan named
-    "Mamma" exists, its annual payment becomes
-        max(min_mamma_annual, debt_budget_annual - other_loans_payment)
-    capped at the remaining balance. This redirects freed-up debt-service
-    capacity (after Bank/LBS clear) to Mamma.
+    Adaptive loan logic: for any loan with `is_adaptive=True`, the annual
+    payment becomes
+        max(min_annual, (debt_budget_annual - other_loans_payment) / n_adaptive)
+    capped at that loan's remaining balance. This redirects freed-up
+    debt-service capacity (after non-adaptive loans clear) to adaptive loans.
+    If multiple loans are adaptive, the freed capacity is split equally.
     """
     rows = []
     balances = {l.name: l.principal for l in financing.loans}
     annuities = {l.name: l.monthly_payment * 12 for l in financing.loans}
     rates = {l.name: l.interest_rate for l in financing.loans}
     is_annuity = {l.name: l.is_annuity for l in financing.loans}
+    is_adaptive = {l.name: l.is_adaptive for l in financing.loans}
 
-    has_mamma = "Mamma" in balances
-    mamma_min_annual = annuities.get("Mamma", 0.0)
+    adaptive_names = [l.name for l in financing.loans if l.is_adaptive]
     debt_budget_annual = financing.debt_budget_monthly * 12
 
     for yr in range(1, horizon_years + 1):
@@ -122,16 +123,22 @@ def amortization_schedule(financing: Financing, horizon_years: int) -> pd.DataFr
                 # Constant annuity, capped by (balance + this-year interest)
                 payments[name] = min(annuities[name], bal + interest[name])
             else:
-                # Fixed payment loans (LBS, Mamma): pay the fixed amount, but
-                # cap at the balance (plus interest if any)
+                # Fixed payment (and adaptive) loans: pay the fixed amount,
+                # cap at balance + interest. Adaptive reallocation happens next.
                 payments[name] = min(annuities[name], bal + interest[name])
 
-        # Step 3: adaptive Mamma reallocation
-        if financing.adaptive_mamma and has_mamma and balances["Mamma"] > 0:
-            other_payments = sum(p for n, p in payments.items() if n != "Mamma")
-            target_mamma = max(mamma_min_annual, debt_budget_annual - other_payments)
-            payments["Mamma"] = min(target_mamma,
-                                     balances["Mamma"] + interest["Mamma"])
+        # Step 3: adaptive reallocation — split freed capacity across adaptive
+        # loans with non-zero balance.
+        active_adaptive = [n for n in adaptive_names if balances[n] > 0]
+        if active_adaptive:
+            non_adaptive_payment = sum(p for n, p in payments.items()
+                                       if n not in adaptive_names)
+            freed = max(0.0, debt_budget_annual - non_adaptive_payment)
+            per_loan_target = freed / len(active_adaptive)
+            for name in active_adaptive:
+                min_annual = annuities[name]
+                target = max(min_annual, per_loan_target)
+                payments[name] = min(target, balances[name] + interest[name])
 
         # Step 4: update balances. New balance = old + interest - payment, floored at 0.
         new_balances = {name: max(0.0, balances[name] + interest[name] - payments[name])

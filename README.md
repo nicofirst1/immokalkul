@@ -84,9 +84,9 @@ In the sidebar, expand **🏘 Property** and enter:
 
 Expand **💰 Financing**:
 
-- **Initial capital deployed (€)** — total cash put down at closing, *including* LBS savings and any Mamma money used at closing
-- **Adaptive Mamma** — if on, freed-up debt-service capacity flows to Mamma after Bank/LBS clear (typical case). If off, Mamma stays at the fixed minimum monthly payment
-- **Loans table** — edit principal, interest rate, monthly payment, and whether it's an annuity
+- **Initial capital deployed (€)** — total cash put down at closing, *including* any Bauspar payout and family-loan proceeds used up front
+- **Total monthly debt budget** — ceiling for total monthly debt service. Only used when at least one loan has *Adaptive* checked in the loans table.
+- **Loans table** — edit principal, interest rate, monthly payment, *Annuity?* (German Annuitätendarlehen), and *Adaptive?* (absorbs freed-up debt capacity once other loans clear, up to the budget above). Hover any column header in the table for a full explanation.
 
 The sidebar shows a **💡 Suggested Bank principal** based on `total purchase cost − initial capital`. If your bank loan in the table doesn't match that, it usually means you over- or under-financed something, or the initial capital figure is off.
 
@@ -129,7 +129,7 @@ This is also where you sanity-check what's being modeled: did I include the chim
 
 ### 🏦 Debt
 
-Stacked balance chart showing how each loan amortizes over 50 years. Below it, annual payment breakdown by loan. The summary table shows total interest paid per loan. If you turned on adaptive Mamma, you'll see Mamma's annual payment jump up after Bank/LBS clear — that's the freed capacity flowing to it.
+Stacked balance chart showing how each loan amortizes over 50 years. Below it, annual payment breakdown by loan. The summary table shows total interest paid per loan. If a loan is flagged *Adaptive*, you'll see its annual payment jump up after the non-adaptive loans clear — that's the freed capacity flowing to it.
 
 ### 🔨 Capex
 
@@ -217,11 +217,13 @@ The `result` object has `.cashflow`, `.amort`, `.tax`, `.cost_lines`, `.purchase
 
 **Annuitätendarlehen** — annual annuity = `principal × (interest_rate + initial_repayment_rate)`. Constant payment over the loan's life; interest portion shrinks, principal portion grows.
 
-**Adaptive Mamma** — when on, Mamma's annual payment is `max(min, debt_budget − bank_payment − LBS_payment)`, capped at remaining balance. Redirects freed-up debt-service capacity once Bank or LBS clear.
+**Adaptive loans** — any loan with `is_adaptive: true`. Its annual payment becomes `max(min_annual, (debt_budget_annual − non_adaptive_payment) / n_adaptive)`, capped at the remaining balance. This redirects freed-up debt-service capacity to the adaptive tranche(s) once non-adaptive loans clear. Typical use: a family / 0%-interest loan you want to retire faster over time. The legacy `adaptive_mamma` YAML flag is auto-migrated on load (sets `is_adaptive=true` on the loan named `Mamma`).
 
 **Component lifecycles** — heating 20 yr, roof 40 yr, façade paint 12 yr, windows 30 yr, bathroom 28 yr, electrical 35 yr, plumbing 45 yr, etc. From paritätische Lebensdauertabelle (HEV/MV) and BKI cost data.
 
 All German constants live in `immokalkul/rules_de.py` with citations. When a tax law changes, that's the only file to touch.
+
+For the full bibliography of sources consulted (AfA, Petersche Formel, component lifecycles, Bodenrichtwert, etc.) with a reliability ranking and caveats, see [REFERENCES.md](REFERENCES.md).
 
 ---
 
