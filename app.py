@@ -234,35 +234,33 @@ def sidebar_inputs():
             edited = st.data_editor(
                 loans_df, num_rows="dynamic", key="loans_editor",
                 column_config={
-                    "Name": st.column_config.TextColumn(
-                        "Name",
-                        help="Free-text label (e.g. Bank, LBS, Mamma). "
-                             "Shown in charts and summary tables."),
-                    "Principal (€)": st.column_config.NumberColumn(
-                        format="%.0f",
-                        help="Amount borrowed at closing."),
-                    "Rate": st.column_config.NumberColumn(
-                        format="%.4f", step=0.001,
-                        help="Annual interest rate as a decimal "
-                             "(e.g. 0.034 = 3.4%)."),
-                    "Monthly (€)": st.column_config.NumberColumn(
-                        format="%.2f",
-                        help="Fixed monthly payment. For an Annuitätendarlehen "
-                             "this is principal × (rate + Tilgung) / 12. "
-                             "For an adaptive loan this is the MINIMUM — "
-                             "the engine may lift it once other loans clear."),
-                    "Annuity?": st.column_config.CheckboxColumn(
-                        help="Check for German Annuitätendarlehen "
-                             "(constant annual payment; interest shrinks, "
-                             "principal grows). Uncheck for fixed-payment "
-                             "loans like LBS Bausparverträge or family loans."),
-                    "Adaptive?": st.column_config.CheckboxColumn(
-                        help="If checked, this loan absorbs freed-up debt "
-                             "capacity once other loans clear, up to the "
-                             "Total monthly debt budget above. Typical for "
-                             "low-priority loans (family / 0%-interest) that "
-                             "you want to retire faster over time."),
+                    "Principal (€)": st.column_config.NumberColumn(format="%.0f"),
+                    "Rate": st.column_config.NumberColumn(format="%.4f", step=0.001),
+                    "Monthly (€)": st.column_config.NumberColumn(format="%.2f"),
+                    "Annuity?": st.column_config.CheckboxColumn(),
+                    "Adaptive?": st.column_config.CheckboxColumn(),
                 })
+            # Column key lives below the table — per-column hover tooltips
+            # overflow the sidebar on narrow viewports.
+            with st.expander("ℹ What do these columns mean?", expanded=False):
+                st.markdown(
+                    "- **Name** — free-text label (Bank, LBS, Mamma, …) "
+                    "shown in charts and summary tables.\n"
+                    "- **Principal (€)** — amount borrowed at closing.\n"
+                    "- **Rate** — annual interest rate as a decimal "
+                    "(e.g. `0.034` = 3.4 %).\n"
+                    "- **Monthly (€)** — fixed monthly payment. For an "
+                    "Annuitätendarlehen this is principal × (rate + Tilgung) "
+                    "/ 12. For an adaptive loan it's the **minimum** — the "
+                    "engine may lift it once other loans clear.\n"
+                    "- **Annuity?** — check for a German Annuitätendarlehen "
+                    "(constant monthly payment; interest shrinks, principal "
+                    "grows). Uncheck for fixed-payment loans like LBS "
+                    "Bausparverträge or family loans.\n"
+                    "- **Adaptive?** — check to absorb freed-up debt "
+                    "capacity once other loans clear, up to the Total "
+                    "monthly debt budget above. Typical for low-priority "
+                    "family / 0 %-interest loans you want to retire faster.")
             # Write back
             new_loans = []
             for _, row in edited.iterrows():
