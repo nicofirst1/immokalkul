@@ -1068,13 +1068,36 @@ def tab_debt(result, s: Scenario):
 def tab_capex(result, s: Scenario):
     """Capex schedule."""
     st.markdown(f"## Capex schedule  :violet-background[{s.mode.upper()} mode]")
-    st.caption("Auto-scheduled major renovations from component lifecycle table, "
-               "plus any user-specified capex from the sidebar.")
+
+    auto_on = s.auto_schedule_capex
+    n_auto = len(result.auto_capex) if auto_on else 0
+    n_user = len(s.user_capex)
+
+    st.caption(
+        f"**{n_auto} auto-scheduled** + **{n_user} user-specified** items. "
+        + ("Auto-scheduled items come from the German component lifecycle "
+           "table (heating ~20 yr, roof ~40 yr, façade paint ~12 yr, …) "
+           "projected forward from the last Kernsanierung (or year built). "
+           "Turn them off with the **Auto-schedule component capex** "
+           "checkbox in the 🔨 sidebar expander."
+           if auto_on else
+           "Auto-scheduling is **off** — only user-specified items below. "
+           "Enable it in the 🔨 sidebar expander to project component "
+           "replacements from the German lifecycle table."))
 
     items = result.all_capex
     if not items:
         st.info("No capex scheduled.")
         return
+
+    # Tag each item as Auto vs User so the user can see where the schedule
+    # is coming from. `result.auto_capex` is a ComponentSchedule list; the
+    # matching CapexItems live at the front of `all_capex`.
+    source_of = {}
+    for it in result.auto_capex:
+        source_of[(it.component_name, it.next_replacement_year)] = "Auto"
+    for it in s.user_capex:
+        source_of[(it.name, it.year_due)] = "User"
 
     rows = []
     for it in items:
@@ -1084,21 +1107,25 @@ def tab_capex(result, s: Scenario):
             "Year": it.year_due,
             "Yr offset": offset,
             "Item": it.name,
+            "Source": source_of.get((it.name, it.year_due), "Auto"),
             "Cost today (€)": it.cost_eur,
             "Cost inflated (€)": it.cost_eur * infl_factor,
             "Capitalized": "AfA" if it.is_capitalized else "Deductible",
         })
     df = pd.DataFrame(rows).sort_values("Year")
 
-    # Timeline chart (Gantt-like)
+    # Timeline chart (Gantt-like) — colour by source so the user sees at a
+    # glance what came from the auto-schedule vs their own entries.
     fig = px.scatter(df, x="Year", y="Item", size="Cost inflated (€)",
-                      color="Capitalized", hover_data=["Cost today (€)"],
+                      color="Source", hover_data=["Cost today (€)", "Capitalized"],
                       title="Capex timeline (bubble size = inflated cost)")
     fig.update_layout(height=max(400, 30 * len(df)))
     st.plotly_chart(fig, width="stretch")
     st.caption("Each bubble is a scheduled renovation; bigger = more "
-               "expensive. *AfA* = capitalised (depreciated); "
-               "*Deductible* = immediately expensed.")
+               "expensive. Colour indicates **Source**: Auto = generated "
+               "from the component lifecycle table; User = entered in the "
+               "sidebar. Hover for cost and Capitalized flag (AfA vs. "
+               "immediately deductible).")
 
     # Annual aggregate
     annual = df.groupby("Year")["Cost inflated (€)"].sum().reset_index()
