@@ -575,6 +575,83 @@ def tab_summary(result, s: Scenario, afford: dict):
             "hundreds of thousands of euros worse than reality."
         )
 
+    # ---------- Year-1 monthly: the "what do I pay every month?" view ----------
+    loan_mo = afford["loan_mo"]
+    opex_mo = afford["cost_mo"] - loan_mo
+    yr1 = result.cashflow.iloc[0]
+    tax_mo = float(yr1["tax_owed"]) / 12
+    rent_income_mo = afford["rent_mo"]  # rent mode: non-zero; live mode: 0
+    avoided_mo = (float(yr1.get("avoided_rent", 0.0)) / 12
+                  if s.mode == "live" else 0.0)
+
+    ownership_mo = loan_mo + opex_mo + max(0.0, tax_mo)
+    tax_savings_mo = max(0.0, -tax_mo)  # rent-mode refund from Verlustverrechnung
+    offsets_mo = rent_income_mo + avoided_mo + tax_savings_mo
+    net_mo = ownership_mo - offsets_mo
+
+    st.markdown("### Monthly cost (year 1)")
+    m1, m2, m3 = st.columns(3)
+    m1.metric(
+        "Ownership cost / mo",
+        eur(ownership_mo, 0),
+        help=(
+            f"Year-1 monthly cost of owning: loan {eur(loan_mo)} + "
+            f"operating costs {eur(opex_mo)}" +
+            (f" + tax {eur(max(0.0, tax_mo))}" if tax_mo > 0 else "") +
+            "."))
+    offset_delta = []
+    if rent_income_mo > 0:
+        offset_delta.append(f"{eur(rent_income_mo)} rent")
+    if avoided_mo > 0:
+        offset_delta.append(f"{eur(avoided_mo)} avoided rent")
+    if tax_savings_mo > 0:
+        offset_delta.append(f"{eur(tax_savings_mo)} tax refund")
+    m2.metric(
+        "Offsets / mo",
+        eur(offsets_mo, 0),
+        delta=" + ".join(offset_delta) if offset_delta else "none",
+        delta_color="normal" if offsets_mo > 0 else "off",
+        help="Monthly credits that reduce the ownership cost: rental "
+             "income (rent mode), avoided rent (live mode when current "
+             "warm rent is set), and tax refund from Verlustverrechnung "
+             "in loss years (rent mode).")
+    income_mo = s.globals.monthly_household_income
+    m3.metric(
+        "Net out of pocket / mo",
+        eur(net_mo, 0),
+        delta=f"{pct(net_mo / income_mo, 1)} of income" if income_mo else None,
+        delta_color=("inverse" if net_mo > 0 and net_mo / income_mo > 0.30
+                     else "normal"),
+        help="What actually leaves your wallet each month on average "
+             "during year 1 = ownership cost − offsets. Negative means "
+             "the property pays for itself.")
+
+    with st.expander("📋 Line-by-line monthly breakdown"):
+        rows = [
+            ("Loan payment", loan_mo, "out"),
+            ("Operating costs", opex_mo, "out"),
+        ]
+        if tax_mo > 0:
+            rows.append(("Tax owed (rental profit)", tax_mo, "out"))
+        if tax_mo < 0:
+            rows.append(("Tax refund (Verlustverrechnung)", -tax_mo, "in"))
+        if rent_income_mo > 0:
+            rows.append(("Rent income (net of vacancy)", rent_income_mo, "in"))
+        if avoided_mo > 0:
+            rows.append(("Avoided rent (imputed)", avoided_mo, "in"))
+        rows.append(("**Net out of pocket**", net_mo, "net"))
+
+        df_mo = pd.DataFrame([
+            {"Item": name,
+             "€ / month": eur(amt, 0) if direction != "out"
+                          else "− " + eur(amt, 0) if amt != 0 else "—",
+             "Effect": "income" if direction == "in"
+                       else "outflow" if direction == "out"
+                       else "balance"}
+            for name, amt, direction in rows
+        ])
+        st.dataframe(df_mo, hide_index=True, width="stretch")
+
     # ---------- In-context on-ramp: collapsed walkthrough ----------
     with st.expander("🚀 New here? 2-minute walkthrough", expanded=False):
         st.markdown(
