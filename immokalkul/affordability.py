@@ -47,7 +47,13 @@ def compute_affordability(result, s: Scenario) -> dict:
     loan_mo = yr1["loan_payment"] / 12
     cost_mo = (yr1["loan_payment"] + yr1["op_costs"]) / 12
     rent_mo = yr1["rent_net"] / 12 if s.mode == "rent" else 0
-    burden_mo = max(0, cost_mo - rent_mo)
+    # Live-mode "burden" should reflect the INCREMENTAL monthly drain vs.
+    # the household's status quo of renting. If current_warm_rent is set we
+    # subtract it — otherwise the 30 % rule fires against the gross
+    # ownership cost and makes live mode look unaffordable when the
+    # household would in fact be shifting ~€1,800 from a landlord to a loan.
+    current_warm_mo = s.live.current_monthly_rent_warm_eur or 0 if s.mode == "live" else 0
+    burden_mo = max(0, cost_mo - rent_mo - current_warm_mo)
 
     price = s.property.purchase_price
     total_cost = result.purchase.total_cost
@@ -108,10 +114,16 @@ def compute_affordability(result, s: Scenario) -> dict:
     else:
         current_rent_mo = s.live.current_monthly_rent_warm_eur or 0
         if current_rent_mo > 0:
-            checks.append((cost_mo <= current_rent_mo,
-                           f"Ownership ({_fmt_eur(cost_mo)}/mo) is cheaper than current rent ({_fmt_eur(current_rent_mo)}/mo)",
-                           f"Ownership ({_fmt_eur(cost_mo)}/mo) costs more than current rent ({_fmt_eur(current_rent_mo)}/mo) — you're paying for equity instead of a landlord",
-                           "ownership costs more than current rent"))
+            # Ownership premium = the monthly extra you pay above current rent.
+            # Paying a premium buys equity — a positive premium is not automatically
+            # a red flag. Only flag it when the premium eats > 15 % of income
+            # (the level where the household really can't absorb the shift).
+            premium_mo = cost_mo - current_rent_mo
+            premium_pct = premium_mo / income_mo if income_mo else 0
+            checks.append((premium_pct <= 0.15,
+                           f"Monthly ownership premium is {_fmt_pct(premium_pct)} of income ({_fmt_eur(premium_mo)}/mo over current rent)",
+                           f"Monthly ownership premium is {_fmt_pct(premium_pct)} of income — above 15 % strains the budget",
+                           f"ownership premium is {_fmt_pct(premium_pct)} of income"))
 
     passed_msgs = [m for ok, m, _, _ in checks if ok]
     failed_msgs = [m for ok, _, m, _ in checks if not ok]

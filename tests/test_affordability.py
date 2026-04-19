@@ -55,18 +55,54 @@ def test_live_mode_yield_checks_absent() -> None:
     assert not any("yield" in h for h in headlines)
 
 
-def test_live_mode_current_rent_check_only_when_set() -> None:
-    # No current rent set → no comparison check.
+def test_live_mode_premium_check_only_when_rent_set() -> None:
+    # No current rent set → no premium check.
     s_unset = make_scenario(mode="live", current_rent_warm=0.0)
     a = _afford(s_unset)
     headlines = [c[3] for c in a["checks"]]
-    assert not any("current rent" in h for h in headlines)
+    assert not any("premium" in h for h in headlines)
 
-    # Current rent set → comparison check appears.
+    # Current rent set → premium check appears.
     s_set = make_scenario(mode="live", current_rent_warm=1_800.0)
     a = _afford(s_set)
     headlines = [c[3] for c in a["checks"]]
-    assert any("current rent" in h for h in headlines)
+    assert any("premium" in h for h in headlines)
+
+
+def test_live_mode_small_premium_passes() -> None:
+    """A small monthly premium over current rent (< 15 % of income) should
+    not fail the affordability check — you're just shifting rent to equity."""
+    s = make_scenario(
+        mode="live", price=400_000, initial_capital=150_000,
+        bank_rate=0.034, bank_monthly=1_200.0,
+        monthly_income=6_000, current_rent_warm=1_800.0,
+    )
+    a = _afford(s)
+    premium_checks = [c for c in a["checks"]
+                       if "premium" in c[3]]
+    assert premium_checks
+    # Expect it to pass — this scenario has low loan payment + moderate ops,
+    # so the monthly ownership premium over €1,800 rent should be < 15 %
+    # of a €6,000 income.
+    assert bool(premium_checks[0][0]) is True
+
+
+def test_live_mode_burden_subtracts_current_rent(bonn_scenario) -> None:
+    """With current warm rent set, live-mode burden_pct should reflect the
+    INCREMENTAL drain, not the gross ownership cost."""
+    from copy import deepcopy
+    s = deepcopy(bonn_scenario)
+    s.mode = "live"
+    s.live.current_monthly_rent_warm_eur = 1_800.0
+    a = compute_affordability(run(s), s)
+
+    s_gross = deepcopy(bonn_scenario)
+    s_gross.mode = "live"
+    s_gross.live.current_monthly_rent_warm_eur = 0.0
+    a_gross = compute_affordability(run(s_gross), s_gross)
+
+    # Setting current rent must reduce burden_pct (smaller is better here).
+    assert a["burden_pct"] < a_gross["burden_pct"]
 
 
 def test_ratios_have_expected_signs_and_ranges() -> None:
