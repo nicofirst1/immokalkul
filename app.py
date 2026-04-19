@@ -205,12 +205,29 @@ def sidebar_inputs():
 
         # --- Financing ---
         with st.expander("💰 Financing", expanded=False):
+            with st.expander("❓ Initial capital vs. loans — what's the difference?",
+                              expanded=False):
+                st.markdown(
+                    "**Initial capital** is *your own money* at closing — "
+                    "savings, a gift, a Bauspar payout. No repayment, no "
+                    "interest.\n\n"
+                    "**Loans** are money a third party fronts; you pay them "
+                    "back over time.\n\n"
+                    "**Closing identity:** `initial_capital + Σ annuity loans "
+                    "= price + fees`. The 'Suggested Bank principal' hint "
+                    "below is exactly that residual.\n\n"
+                    "**Family / Bauspar loans.** If a family loan's cash is "
+                    "already inside *Initial capital* at closing, add the "
+                    "loan as a **non-annuity** row below to track the "
+                    "repayment only — don't double-count it at closing. "
+                    "Flag it *Adaptive* if you want freed-up capacity to "
+                    "flow into it once other loans clear.")
             s.financing.initial_capital = st.number_input(
                 "Initial capital deployed (€)",
                 value=float(s.financing.initial_capital), step=5000.0, format="%.0f",
-                help="Total cash put down at closing — savings + any Bauspar "
-                     "payout + family-loan proceeds. The residual is what the "
-                     "bank must finance.")
+                help="Your own money at closing — savings, gifts, Bauspar "
+                     "payouts. No repayment. Contrast with Loans (below) = "
+                     "third-party money you repay over time.")
 
             any_adaptive = any(l.is_adaptive for l in s.financing.loans)
             if any_adaptive:
@@ -1190,23 +1207,28 @@ def tab_getting_started():
 
     with st.expander("💰 Financing — initial capital and loans", expanded=False):
         st.markdown(
-            "- **Initial capital deployed**: cash at closing, including any "
-            "Bauspar payout and family-loan proceeds used up front.\n"
-            "- **Total monthly debt budget**: only matters if at least one "
-            "loan is flagged *Adaptive* (see below). Leave it inert "
-            "otherwise.\n"
-            "- **Loans table**: one row per tranche. For each row:\n"
-            "  - *Annuity?* check for German Annuitätendarlehen (constant "
-            "monthly payment; typical for bank loans). Uncheck for "
-            "fixed-payment loans like LBS Bausparverträge or family loans.\n"
-            "  - *Adaptive?* check if this loan should absorb freed-up debt "
-            "capacity once the others clear (typical for low-priority family "
-            "/ 0%-interest loans you want to retire faster over time). The "
-            "*Monthly (€)* field then becomes the **minimum**; the engine "
-            "lifts it up to the total monthly debt budget after other loans "
-            "fall away.\n"
-            "- The sidebar shows a **Suggested Bank principal** "
-            "(= total purchase cost − initial capital). If your actual bank "
+            "**Mental model:** you close the purchase with `initial_capital "
+            "+ Σ annuity loans = price + fees`.\n\n"
+            "- **Initial capital deployed** = your own money at closing "
+            "(savings, gifts, Bauspar payouts). No repayment, no interest. "
+            "This shrinks what the bank has to finance.\n"
+            "- **Loans table** = third-party money you pay back over time. "
+            "One row per tranche. Columns:\n"
+            "  - *Annuity?* → German Annuitätendarlehen (constant monthly "
+            "payment). Uncheck for fixed-payment loans (LBS Bausparverträge, "
+            "family loans).\n"
+            "  - *Adaptive?* → this loan absorbs freed-up debt capacity "
+            "once the others clear. The *Monthly (€)* field then becomes the "
+            "**minimum** payment; the engine lifts it up to the total "
+            "monthly debt budget. Typical for low-priority family / "
+            "0%-interest loans you want to retire faster.\n"
+            "- **Family / Bauspar loans.** If the family cash arrives at "
+            "closing, fold it into *Initial capital* and add a non-annuity "
+            "row here to track the ongoing repayment — don't double-count.\n"
+            "- **Total monthly debt budget** — only used when ≥ 1 loan is "
+            "flagged Adaptive. Otherwise it's inert and hidden.\n"
+            "- **Suggested Bank principal hint** in the sidebar is "
+            "`total purchase cost − initial capital`. If your actual bank "
             "loan differs, one of the two numbers is probably off."
         )
 
