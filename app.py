@@ -139,6 +139,28 @@ def sidebar_inputs():
                 st.success(f"Loaded {uploaded.name}")
                 st.rerun()
 
+            # --- Build from a listing via LLM ---
+            with st.expander("🤖 Build YAML from a listing via LLM",
+                              expanded=False):
+                st.caption(
+                    "No YAML to hand? Paste a listing URL or Exposé below, "
+                    "copy the generated prompt into ChatGPT / Claude / "
+                    "Gemini, and it'll return a YAML you can upload above.")
+                listing_ctx = st.text_area(
+                    "Listing URL or Exposé text",
+                    height=100,
+                    placeholder=("https://www.immobilienscout24.de/expose/..."
+                                  "  — or paste the full Exposé text"),
+                    key="llm_listing_context")
+                st.markdown(
+                    "**How to use:** copy the prompt below (📋 icon, top-"
+                    "right of the code block) → paste into your LLM → save "
+                    "its YAML reply as a file → upload it above.")
+                st.code(
+                    _build_llm_prompt(listing_ctx.strip() or
+                                       "(paste the listing URL or text here)"),
+                    language="markdown")
+
             # Save current to YAML for download
             buf = io_module.StringIO()
             tmp_yaml = Path("/tmp") / f"{s.property.name.replace(' ', '_')}.yaml"
@@ -1527,6 +1549,110 @@ For anything affecting an actual tax filing, verify with a Steuerberater. For Bo
 # -----------------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------------
+def _build_llm_prompt(listing_context: str) -> str:
+    """Prompt template the user pastes into an LLM to extract a listing into
+    the immokalkul YAML schema.
+
+    The embedded schema mirrors `immokalkul.models` and the bundled samples —
+    if the models change, update this function in the same PR.
+    """
+    return f"""You are an assistant that extracts German real-estate listing data into a
+YAML scenario for the "immokalkul" property finance calculator.
+
+OUTPUT: only valid YAML matching the schema below. No Markdown, no commentary,
+no code fences. If the listing doesn't state a value, use a sensible German-
+market default (not a placeholder string). Never invent details — if something
+is genuinely unknowable from the input, fall back to the default shown.
+
+USER-PROVIDED LISTING INFORMATION (URL, Exposé text, or free-text description):
+
+<<<
+{listing_context}
+>>>
+
+SCHEMA — mirror this structure exactly, filling in values from the listing:
+
+mode: rent                              # "live" (owner-occupied) or "rent" (buy-to-let)
+
+property:
+  name: "City — short description"      # e.g. "Köln Altbau 3-Zimmer"
+  purchase_price: 400000                # EUR, Kaufpreis on the contract (not Gesamtpreis)
+  living_space_m2: 80.0                 # Wohnfläche
+  plot_size_m2: 80.0                    # apartment: your share of WEG plot (≈ Wohnfläche)
+                                        # house: full Grundstück
+  year_built: 2000                      # Baujahr
+  year_last_major_renovation: null      # int year, or null if never
+  property_type: apartment              # "apartment" or "house"
+  heating_type: gas                     # gas | oil | heat_pump | district | electric | wood
+  energy_demand_kwh_per_m2_year: 100    # from the Energieausweis; <100 good, 100-150 avg, 150+ poor
+  has_elevator: false
+  bodenrichtwert_eur_per_m2: null       # €/m² from BORIS NRW; null if unknown (engine falls back)
+  is_denkmal: false
+  notes: "Short free-text note (Altbau, recent Kernsanierung, etc.)"
+  listing_url: "https://..."            # paste the original URL if available
+
+financing:
+  initial_capital: 100000               # your own cash at closing (savings, gifts, Bauspar payout)
+  debt_budget_monthly: 1800             # only used when a loan is flagged adaptive
+  loans:
+    - name: Bank
+      principal: 350000                 # ≈ total_cost (price × 1.12) − initial_capital
+      interest_rate: 0.035               # annual decimal; 0.035 = 3.5 %
+      monthly_payment: 1604             # principal × (rate + 0.015) / 12 for 1.5 % Tilgung
+      is_annuity: true
+      is_adaptive: false
+
+costs:
+  gas_price_eur_per_kwh: 0.11
+  electricity_price_eur_per_kwh: 0.35
+  grundsteuer_rate_of_price: 0.002      # 0.15-0.35 % typical post-2025 reform
+  building_insurance_eur_per_m2_year: 4.0
+  liability_insurance_annual: 150.0
+  administration_monthly: 30.0
+  municipal_charges_eur_per_m2_month: 0.60
+  hausgeld_monthly_for_rent: 350        # apartments only; set 0 for freestanding houses
+
+rent:
+  monthly_rent: 1500                    # expected Kaltmiete
+  monthly_parking: 0
+  annual_rent_escalation: 0.02          # 1.5-2.5 % typical under Mietspiegel
+  expected_vacancy_months_per_year: 0.25
+  landlord_legal_insurance_annual: 300
+  has_property_manager: false
+  property_manager_pct_of_rent: 0.06
+
+live:
+  people_in_household: 2
+  large_appliances: 4
+  needs_kitchen_replacement: false
+  current_monthly_rent_warm_eur: 0      # what the household pays today all-in
+
+globals:
+  monthly_household_income: 6000        # household Netto
+  additional_monthly_savings: 500
+  cost_inflation_annual: 0.02           # ECB target
+  marginal_tax_rate: 0.38               # Grenzsteuersatz
+  horizon_years: 50
+  today_year: {GlobalParameters().today_year}
+
+user_capex: []
+auto_schedule_capex: true
+
+EXTRACTION GUIDANCE:
+- Baujahr → property.year_built. "Teilsaniert 2010" → year_last_major_renovation: 2010.
+- Wohnfläche → living_space_m2. Zimmer count alone is not enough — find the m².
+- Immobilienscout / Exposé pages list Hausgeld separately; use it if present,
+  otherwise estimate as 3 €/m²/month for apartments, 0 for houses.
+- If Denkmalgeschützt is mentioned → is_denkmal: true.
+- If the listing is a Mehrfamilienhaus apartment, set property_type: apartment
+  and plot_size_m2 ≈ living_space_m2 (WEG share). For a freestanding house,
+  use the actual Grundstücksgröße.
+- Compute Bank loan: principal ≈ purchase_price × 1.12 − initial_capital; if
+  no initial_capital signal, leave the default at 100000 and recompute.
+  monthly_payment ≈ principal × (interest_rate + 0.015) / 12 (1.5 % Tilgung).
+- Produce ONLY the YAML. No heading, no explanation, no code fence."""
+
+
 def _years_until_clear(result, loan_name: str) -> str:
     col = f"{loan_name}_balance"
     if col not in result.amort.columns:
