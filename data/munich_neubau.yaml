@@ -1,0 +1,72 @@
+# Example: Munich Neubau apartment
+# Generic illustration — not a real listing. Edit freely.
+#
+# Showcases:
+#   - post-2023 AfA rate (3%, 33⅓-year life) for new builds
+#   - high Bodenrichtwert → lower building share → smaller AfA basis
+#   - low energy demand from modern KfW-55 construction
+#   - strong Munich rent rebasing assumptions
+
+mode: rent
+
+property:
+  name: "Munich Neubau 3-Zimmer"
+  purchase_price: 750000
+  living_space_m2: 78.0
+  plot_size_m2: 78.0
+  year_built: 2024
+  year_last_major_renovation: null
+  property_type: apartment
+  heating_type: heat_pump
+  energy_demand_kwh_per_m2_year: 42
+  has_elevator: true
+  bodenrichtwert_eur_per_m2: 3500
+  is_denkmal: false
+  notes: "Modern KfW-55 build. 3% AfA applies (post-2023 rule, §7 Abs. 4 Nr. 2a EStG)."
+  listing_url: ""
+
+financing:
+  initial_capital: 200000
+  adaptive_mamma: false
+  debt_budget_monthly: 2800
+  loans:
+    - name: Bank
+      principal: 610000
+      interest_rate: 0.038
+      monthly_payment: 2793.33     # 610000 × (0.038 + 0.017) / 12
+      is_annuity: true
+
+costs:
+  gas_price_eur_per_kwh: 0.11
+  electricity_price_eur_per_kwh: 0.35
+  grundsteuer_rate_of_price: 0.002
+  building_insurance_eur_per_m2_year: 4.0
+  liability_insurance_annual: 150.0
+  administration_monthly: 30.0
+  municipal_charges_eur_per_m2_month: 0.60
+  hausgeld_monthly_for_rent: 340.0
+
+rent:
+  monthly_rent: 1950
+  monthly_parking: 100
+  annual_rent_escalation: 0.025
+  expected_vacancy_months_per_year: 0.15
+  landlord_legal_insurance_annual: 300
+  has_property_manager: false
+  property_manager_pct_of_rent: 0.06
+
+live:
+  people_in_household: 2
+  large_appliances: 4
+  needs_kitchen_replacement: false
+
+globals:
+  monthly_household_income: 8000
+  additional_monthly_savings: 600
+  cost_inflation_annual: 0.02
+  marginal_tax_rate: 0.42
+  horizon_years: 50
+  today_year: 2026
+
+user_capex: []
+auto_schedule_capex: true

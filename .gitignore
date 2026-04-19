@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# uv
+# (commit uv.lock — Streamlit Cloud reads it; do not ignore)
+
+# Streamlit
+.streamlit/secrets.toml
+
+# macOS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Local scenario overrides (uncomment if you want private YAMLs kept out of git)
+# data/private_*.yaml

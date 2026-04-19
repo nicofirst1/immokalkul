@@ -1,0 +1,90 @@
+# Bonn-Poppelsdorf 3-Zimmer Wohnung
+# Scenario file for immokalkul
+#
+# Edit values below; the app loads this and lets you tweak interactively.
+# Save changes via the UI, or directly here in your editor.
+
+mode: rent              # "live" or "rent"
+
+property:
+  name: "Bonn-Poppelsdorf 3-Zimmer"
+  purchase_price: 446000
+  living_space_m2: 128.25
+  plot_size_m2: 128.25         # for an apartment, often = living space (your share)
+  year_built: 1904
+  year_last_major_renovation: null  # null if never; e.g. 1995 if Kernsaniert in 1995
+  property_type: apartment
+  heating_type: gas
+  energy_demand_kwh_per_m2_year: 138
+  has_elevator: false
+  bodenrichtwert_eur_per_m2: 1300   # Bonn-Poppelsdorf range €1,000-1,600 (2024)
+  is_denkmal: false
+  notes: "Pre-1925 Altbau, 2.5% AfA. Watch for Anschaffungsnaher Aufwand if reno > 15% of building value in first 3 yr."
+  listing_url: "https://www.immobilienscout24.de/expose/161172839"
+
+financing:
+  initial_capital: 200000      # cash deployed at closing (incl. LBS savings & Mamma)
+  adaptive_mamma: true         # Mamma payment scales up after Bank/LBS clear
+  debt_budget_monthly: 1745    # ceiling for total monthly debt service (adaptive)
+  loans:
+    - name: LBS
+      principal: 50000
+      interest_rate: 0.007
+      monthly_payment: 295
+      is_annuity: false        # LBS Bausparvertrag is fixed-payment
+    - name: Mamma
+      principal: 100000
+      interest_rate: 0.0
+      monthly_payment: 100     # minimum; may be larger when adaptive
+      is_annuity: false
+    - name: Bank
+      principal: 299832.20     # Computed: total cost (€499,832) - initial capital (€200k)
+                               # If you change initial_capital or fees, recompute or
+                               # let the app suggest the residual amount.
+      interest_rate: 0.034
+      monthly_payment: 1349.24 # = principal × (rate + Tilgung) / 12 = 299832 × 0.054 / 12
+      is_annuity: true
+
+costs:
+  gas_price_eur_per_kwh: 0.11
+  electricity_price_eur_per_kwh: 0.35
+  grundsteuer_rate_of_price: 0.002
+  building_insurance_eur_per_m2_year: 4.0
+  liability_insurance_annual: 150.0
+  administration_monthly: 30.0
+  municipal_charges_eur_per_m2_month: 0.60
+  hausgeld_monthly_for_rent: 375.0
+
+rent:
+  monthly_rent: 2200
+  monthly_parking: 0
+  annual_rent_escalation: 0.02
+  expected_vacancy_months_per_year: 0.25
+  landlord_legal_insurance_annual: 300
+  has_property_manager: false
+  property_manager_pct_of_rent: 0.06
+
+live:
+  people_in_household: 2
+  large_appliances: 4
+  needs_kitchen_replacement: false
+
+globals:
+  monthly_household_income: 6000
+  additional_monthly_savings: 500
+  cost_inflation_annual: 0.02
+  marginal_tax_rate: 0.38
+  horizon_years: 50
+  today_year: 2026
+
+# Optional: explicit one-off renovations on top of auto-scheduled component capex.
+# Each item: name, cost_eur, year_due (calendar year), is_capitalized
+user_capex: []
+# Example:
+# user_capex:
+#   - name: "Bathroom redo (known issue)"
+#     cost_eur: 18000
+#     year_due: 2027
+#     is_capitalized: false   # immediately deductible (Erhaltungsaufwand)
+
+auto_schedule_capex: true

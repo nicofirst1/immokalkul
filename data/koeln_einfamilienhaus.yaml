@@ -1,0 +1,72 @@
+# Example: Köln single-family house
+# Generic illustration — not a real listing. Edit freely.
+#
+# Showcases:
+#   - property_type = house (no Hausgeld, different building share defaults)
+#   - larger plot relative to living space → lower building share → smaller AfA basis
+#   - live mode (owner-occupied) as the default — toggle to rent in the sidebar
+#   - 1980s component lifecycles: heating & bathroom due soon
+
+mode: live
+
+property:
+  name: "Köln Einfamilienhaus"
+  purchase_price: 520000
+  living_space_m2: 142.0
+  plot_size_m2: 380.0
+  year_built: 1987
+  year_last_major_renovation: 2012  # windows + bathroom then
+  property_type: house
+  heating_type: gas
+  energy_demand_kwh_per_m2_year: 128
+  has_elevator: false
+  bodenrichtwert_eur_per_m2: 480
+  is_denkmal: false
+  notes: "1980s Einfamilienhaus, partial modernization in 2012. Heating replacement likely due in early 2030s; roof check by mid-2030s."
+  listing_url: ""
+
+financing:
+  initial_capital: 130000
+  adaptive_mamma: false
+  debt_budget_monthly: 1900
+  loans:
+    - name: Bank
+      principal: 430000
+      interest_rate: 0.035
+      monthly_payment: 1900.83     # 430000 × (0.035 + 0.018) / 12
+      is_annuity: true
+
+costs:
+  gas_price_eur_per_kwh: 0.11
+  electricity_price_eur_per_kwh: 0.35
+  grundsteuer_rate_of_price: 0.002
+  building_insurance_eur_per_m2_year: 3.5
+  liability_insurance_annual: 200.0
+  administration_monthly: 0.0       # no WEG for a detached house
+  municipal_charges_eur_per_m2_month: 0.55
+  hausgeld_monthly_for_rent: 0.0    # no Hausgeld for a detached house
+
+rent:
+  monthly_rent: 1750
+  monthly_parking: 0
+  annual_rent_escalation: 0.02
+  expected_vacancy_months_per_year: 0.3
+  landlord_legal_insurance_annual: 300
+  has_property_manager: false
+  property_manager_pct_of_rent: 0.06
+
+live:
+  people_in_household: 4
+  large_appliances: 5
+  needs_kitchen_replacement: false
+
+globals:
+  monthly_household_income: 7000
+  additional_monthly_savings: 500
+  cost_inflation_annual: 0.02
+  marginal_tax_rate: 0.38
+  horizon_years: 50
+  today_year: 2026
+
+user_capex: []
+auto_schedule_capex: true

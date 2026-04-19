@@ -1,0 +1,71 @@
+# Example: Berlin Altbau apartment (pre-1925)
+# Generic illustration — not a real listing. Edit freely.
+#
+# Showcases:
+#   - 2.5% AfA for pre-1925 buildings (40-year life, § 7 Abs. 4 Nr. 2b EStG)
+#   - capex clustering: many old components due for replacement soon
+#   - Anschaffungsnaher Aufwand risk if big renovations happen in first 3 years
+
+mode: rent
+
+property:
+  name: "Berlin Altbau 3-Zimmer"
+  purchase_price: 595000
+  living_space_m2: 95.0
+  plot_size_m2: 95.0
+  year_built: 1908
+  year_last_major_renovation: 1998   # light Modernisierung then; heating redone
+  property_type: apartment
+  heating_type: gas
+  energy_demand_kwh_per_m2_year: 158
+  has_elevator: false
+  bodenrichtwert_eur_per_m2: 2800
+  is_denkmal: false
+  notes: "Pre-1925 Altbau → 2.5% AfA. Heating from 1998 is near end-of-life. Watch Anschaffungsnaher Aufwand if total reno > 15% of building value in first 3 years."
+  listing_url: ""
+
+financing:
+  initial_capital: 150000
+  adaptive_mamma: false
+  debt_budget_monthly: 2300
+  loans:
+    - name: Bank
+      principal: 495000
+      interest_rate: 0.036
+      monthly_payment: 2268.75     # 495000 × (0.036 + 0.019) / 12
+      is_annuity: true
+
+costs:
+  gas_price_eur_per_kwh: 0.11
+  electricity_price_eur_per_kwh: 0.35
+  grundsteuer_rate_of_price: 0.002
+  building_insurance_eur_per_m2_year: 4.5
+  liability_insurance_annual: 150.0
+  administration_monthly: 35.0
+  municipal_charges_eur_per_m2_month: 0.65
+  hausgeld_monthly_for_rent: 380.0
+
+rent:
+  monthly_rent: 1650
+  monthly_parking: 0
+  annual_rent_escalation: 0.018     # Berlin Mietspiegel-capped; slower growth
+  expected_vacancy_months_per_year: 0.2
+  landlord_legal_insurance_annual: 300
+  has_property_manager: false
+  property_manager_pct_of_rent: 0.06
+
+live:
+  people_in_household: 2
+  large_appliances: 4
+  needs_kitchen_replacement: false
+
+globals:
+  monthly_household_income: 6500
+  additional_monthly_savings: 400
+  cost_inflation_annual: 0.025
+  marginal_tax_rate: 0.38
+  horizon_years: 50
+  today_year: 2026
+
+user_capex: []
+auto_schedule_capex: true

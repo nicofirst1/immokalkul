@@ -1,0 +1,17 @@
+[project]
+name = "immokalkul"
+version = "0.1.0"
+description = "German property finance modeling — live vs. rent, for a single scenario."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Nicolo' Brandizzi" }]
+dependencies = [
+    "streamlit>=1.50,<2.0",
+    "pandas>=2.2,<3.0",
+    "plotly>=5.24,<7.0",
+    "pyyaml>=6.0,<7.0",
+]
+
+[tool.uv]
+package = false
