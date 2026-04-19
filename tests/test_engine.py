@@ -26,9 +26,15 @@ def test_all_sample_scenarios_load_and_run(sample_yaml_paths: list[Path]) -> Non
 
 def test_bonn_reference_cumulative(bonn_result) -> None:
     """Guard against accidental engine drift: the Bonn sample must keep
-    reproducing the long-established 50-year cumulative, within ±€1."""
+    reproducing the long-established 50-year cumulative, within ±€1.
+
+    Pinned value reflects full Verlustverrechnung on rental losses against
+    salary at the marginal rate (§ 10d EStG). Previous pin €405,936 was from
+    the pre-fix model that floored annual tax at €0 and therefore undercounted
+    rent-mode tax shield by ~€95k over 50 years.
+    """
     final = float(bonn_result.cashflow["cumulative"].iloc[-1])
-    assert final == pytest.approx(405_936, abs=1)
+    assert final == pytest.approx(500_507, abs=1)
 
 
 def test_horizon_respected(bonn_scenario) -> None:
@@ -94,6 +100,33 @@ def test_live_mode_avoided_rent_escalates_with_inflation(bonn_scenario) -> None:
     yr1 = r.cashflow["avoided_rent"].iloc[0]
     yr10 = r.cashflow["avoided_rent"].iloc[9]
     assert yr10 == pytest.approx(yr1 * 1.02 ** 9)
+
+
+def test_rent_mode_tax_can_go_negative(bonn_scenario) -> None:
+    """Early years with high interest + AfA should produce a negative
+    tax_owed — that's Verlustverrechnung crediting the salary."""
+    bonn_scenario.mode = "rent"
+    r = run(bonn_scenario)
+    tax = r.tax["tax_owed"]
+    # Bonn has year-1 AfA plus Bank interest north of €10k; taxable income
+    # lands negative, so tax_owed should be < 0 in the early years.
+    assert tax.iloc[0] < 0
+
+
+def test_loss_offset_scales_with_marginal_rate(bonn_scenario) -> None:
+    """Doubling the marginal rate should double the magnitude of the
+    year-1 tax credit (losses offset at the marginal rate, linearly)."""
+    from copy import deepcopy
+    low = deepcopy(bonn_scenario); low.mode = "rent"
+    low.globals.marginal_tax_rate = 0.20
+    high = deepcopy(bonn_scenario); high.mode = "rent"
+    high.globals.marginal_tax_rate = 0.40
+
+    t_low = run(low).tax["tax_owed"].iloc[0]
+    t_high = run(high).tax["tax_owed"].iloc[0]
+    # Both negative; high magnitude should be 2× low magnitude.
+    assert t_high < 0 and t_low < 0
+    assert abs(t_high) == pytest.approx(abs(t_low) * 2, rel=1e-6)
 
 
 def test_live_mode_cumulative_lifts_when_rent_is_credited(bonn_scenario) -> None:

@@ -1165,9 +1165,10 @@ def tab_tax(result, s: Scenario):
     st.markdown(f"**Total tax over {s.globals.horizon_years} years:** "
                  f"{eur(float(tx['tax_owed'].sum()))}")
     st.markdown(f"**Marginal rate applied:** {pct(s.globals.marginal_tax_rate)}")
-    st.markdown("⚠️ Simplification: this floors annual tax at €0 even in loss years. "
-                 "Real German rules let rental losses offset other income — "
-                 "saving more tax in early years than this model shows.")
+    st.markdown("Rental losses offset other income at your marginal rate "
+                 "(Verlustverrechnung, § 10d EStG), so `tax_owed` is signed: "
+                 "a **negative value means a refund** on your salary, typical "
+                 "in early years when AfA + interest + costs exceed rent.")
 
     with st.expander("📊 Annual tax table"):
         st.dataframe(tx.style.format("€{:,.0f}"), width="stretch", height=400)
@@ -1443,7 +1444,7 @@ This tool computes German property finance for both **live** (owner-occupied) an
 ### What this tool does NOT model
 
 - **Property value appreciation** — equity built through amortization is shown via cumulative cash flow, but no market price growth assumed. Add manually if relevant.
-- **Loss carryforward against other income** — German rules let rental losses reduce overall tax bill in early years; this model floors tax at €0.
+- **Loss carry-back limits** — the model applies full Verlustverrechnung (losses offset salary at the marginal rate), but real German rules have annual and cumulative caps (§ 10d EStG) for very large losses. For typical residential buy-to-let this approximation is fine.
 - **Sonderumlagen** (WEG special assessments) — modeled implicitly through the maintenance reserve.
 - **Denkmal-AfA** (§7i EStG) — flag exists in Property but special rules not yet implemented.
 - **§7b Sonder-AfA** for new builds.

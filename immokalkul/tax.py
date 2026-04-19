@@ -5,8 +5,10 @@ Computes annual taxable income from rental and tax owed, applying:
 - AfA on building basis (price × building share + capitalizable fees + capitalized renovations)
 - Anschaffungsnaher Aufwand: renovations within 3 yr of purchase exceeding 15%
   of building value get reclassified to AfA basis instead of immediate deduction
-- Loss carryforward: simplified — Verlustverrechnung against other income would
-  reduce overall tax bill, but here we just floor tax at 0 (conservative)
+- Verlustverrechnung (§ 10d EStG): rental losses in a given year offset other
+  income at the household's marginal rate. The model lets tax_owed go negative
+  (refund), which is the correct economic treatment for a high-income filer
+  whose salary absorbs the rental loss.
 """
 from __future__ import annotations
 from dataclasses import dataclass
@@ -207,9 +209,10 @@ def annual_tax_schedule_v2(mode: Mode,
         deduct_capex = capex_this_year * (1 + globals_.cost_inflation_annual) ** (yr - 1)
 
         taxable = rent_income - deduct_int - deduct_costs - deduct_afa - deduct_capex
-        # Simplification: floor tax at 0. (Real German rule: rental losses
-        # offset other income — would actually save tax in early years.)
-        tax = max(0.0, taxable * globals_.marginal_tax_rate)
+        # Verlustverrechnung: rental losses reduce the household's overall tax
+        # bill at the marginal rate (§ 10d EStG), so tax_owed is signed — a
+        # negative value represents tax *saved* on other income (the salary).
+        tax = taxable * globals_.marginal_tax_rate
 
         rows.append({
             "year": yr,

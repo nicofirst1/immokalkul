@@ -230,7 +230,7 @@ For the full bibliography of sources consulted (AfA, Petersche Formel, component
 ## What this tool does NOT model
 
 - **Property value appreciation** — equity built through amortization is shown via cumulative cash flow, but no market price growth is assumed. Historical Bonn appreciation has been ~3-5%/yr; if you want to factor it in, multiply the building value by `(1 + g)^n` mentally
-- **Loss carryforward against other income** — German rules let rental losses reduce overall tax bill in early years; this model floors annual tax at €0, which under-counts tax savings in early years for rent mode
+- **Loss carry-back / forward caps** — the model applies full Verlustverrechnung (rental losses offset salary at the marginal rate in the same year), but doesn't enforce the annual / cumulative caps in § 10d EStG. For typical residential buy-to-let this is fine; for very large losses the real benefit is slightly smaller
 - **Cost of equivalent rental in live mode** — when you live in a place you own, you save the rent you'd otherwise pay. Set `current_monthly_rent_warm_eur` on `LiveParameters` (or the "Current rent you pay now" sidebar field) and the engine credits it as imputed income in the cash flow, escalated by `cost_inflation_annual`. Leave the field at 0 to keep the legacy "no credit" behaviour
 - **Sonderumlagen (WEG special assessments)** — modeled implicitly through the maintenance reserve, which assumes reserves are sufficient to cover them
 - **Denkmal-AfA (§7i EStG)** — flag exists in the property model but the special 9%/7% scheme isn't yet implemented
