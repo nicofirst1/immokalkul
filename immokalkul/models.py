@@ -103,6 +103,12 @@ class LiveParameters:
     people_in_household: int = 2
     large_appliances: int = 4
     needs_kitchen_replacement: bool = False  # flag for capex
+    current_monthly_rent_warm_eur: float = 0.0  # what the household currently
+                                           # pays to rent, all-inclusive (warm
+                                           # rent + electricity + internet +
+                                           # everything). 0 = not set. Used in
+                                           # Summary as the opportunity-cost
+                                           # comparison for buying-to-live.
 
 
 @dataclass

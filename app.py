@@ -324,6 +324,16 @@ def sidebar_inputs():
                 help="Count of large electric appliances (fridge, freezer, "
                      "washer, dryer, dishwasher, oven). Proxy for electricity "
                      "base load."))
+            s.live.current_monthly_rent_warm_eur = st.number_input(
+                "Current rent you pay now (warm, €/mo)",
+                value=float(s.live.current_monthly_rent_warm_eur),
+                step=50.0, format="%.0f",
+                help="What you currently pay to rent, **all-inclusive**: "
+                     "Warmmiete (Kaltmiete + Nebenkosten) + electricity + "
+                     "internet + anything else. This is the opportunity cost "
+                     "of buying: by owning you stop paying this rent, so the "
+                     "Summary tab uses it to compare to your ownership cost. "
+                     "Leave 0 if you already own or it's not relevant.")
 
         # --- Costs ---
         with st.expander("⚡ Operating costs", expanded=False):
@@ -491,9 +501,175 @@ def render_header(result_current, result_other, s: Scenario):
 # Tabs
 # -----------------------------------------------------------------------------
 def tab_summary(result, s: Scenario):
-    """High-level dashboard. Lists every key number with explanation."""
+    """High-level dashboard. Affordability + returns at the top, then detail."""
     st.markdown("## Summary")
 
+    # ---------- Top: headline affordability & returns dashboard ----------
+    yr1 = result.cashflow.iloc[0]
+    income_mo = s.globals.monthly_household_income
+    income_yr = income_mo * 12
+    loan_mo = yr1["loan_payment"] / 12
+    cost_mo = (yr1["loan_payment"] + yr1["op_costs"]) / 12
+    rent_mo = yr1["rent_net"] / 12 if s.mode == "rent" else 0
+    burden_mo = max(0, cost_mo - rent_mo)
+
+    price = s.property.purchase_price
+    total_cost = result.purchase.total_cost
+    total_debt = sum(l.principal for l in s.financing.loans)
+    initial_cap = s.financing.initial_capital
+    funded = initial_cap + total_debt
+    funding_gap = total_cost - funded
+
+    loan_pct = loan_mo / income_mo if income_mo else 0
+    burden_pct = burden_mo / income_mo if income_mo else 0
+    down_pct = initial_cap / price if price else 0
+    ltv = total_debt / price if price else 0
+    price_to_income = price / income_yr if income_yr else 0
+
+    annual_rent_net = yr1["rent_net"]
+    annual_op_costs = yr1["op_costs"]
+    gross_yield = annual_rent_net / price if (s.mode == "rent" and price) else None
+    net_yield = (annual_rent_net - annual_op_costs) / price if (s.mode == "rent" and price) else None
+    cost_per_m2_yr = (cost_mo * 12) / s.property.living_space_m2 if s.property.living_space_m2 else 0
+
+    st.markdown("### Can you afford this?")
+    a1, a2, a3, a4 = st.columns(4)
+    a1.metric(
+        "Loan / income",
+        pct(loan_pct, 1),
+        delta=("within 30%" if loan_pct <= 0.30 else f"+{pct(loan_pct - 0.30, 1)} over"),
+        delta_color="normal" if loan_pct <= 0.30 else "inverse",
+        help="Monthly debt service as a share of monthly net income. "
+             "German banks use 30% as a rule of thumb for the loan alone.")
+    a2.metric(
+        "Net burden / income",
+        pct(burden_pct, 1),
+        delta=("within 30%" if burden_pct <= 0.30 else f"+{pct(burden_pct - 0.30, 1)} over"),
+        delta_color="normal" if burden_pct <= 0.30 else "inverse",
+        help="Loan + operating costs − rent income, as a share of income. "
+             "The total monthly drain on your salary.")
+    a3.metric(
+        "Down payment / price",
+        pct(down_pct, 1),
+        delta=("≥ 20% floor" if down_pct >= 0.20 else f"{pct(0.20 - down_pct, 1)} short"),
+        delta_color="normal" if down_pct >= 0.20 else "inverse",
+        help="Initial capital as a share of purchase price. German banks "
+             "typically want ≥ 20% down (ideally enough to cover closing "
+             "fees too, so the loan stays ≤ price).")
+    a4.metric(
+        "Price / annual income",
+        f"{price_to_income:.1f}×",
+        delta=("affordable" if price_to_income <= 8 else
+               "stretched" if price_to_income <= 10 else "very stretched"),
+        delta_color=("normal" if price_to_income <= 8 else
+                     "off" if price_to_income <= 10 else "inverse"),
+        help="Purchase price divided by annual household net income. "
+             "5-8× is the traditional safe range; 8-10× is stretched; "
+             "10×+ is typical only in top cities and implies long horizons.")
+
+    st.markdown("### Return, leverage, timing")
+    b1, b2, b3, b4 = st.columns(4)
+    if s.mode == "rent":
+        b1.metric(
+            "Gross rental yield",
+            pct(gross_yield, 2),
+            delta=("≥ 3% rule" if gross_yield >= 0.03 else f"{pct(0.03 - gross_yield, 2)} short"),
+            delta_color="normal" if gross_yield >= 0.03 else "inverse",
+            help="Annual net rent (after vacancy) ÷ purchase price. "
+                 "German buy-to-let rule of thumb: ≥ 3% gross yield, "
+                 "ideally ≥ 4% in regulated markets.")
+        b2.metric(
+            "Net rental yield",
+            pct(net_yield, 2),
+            delta=("≥ 2% healthy" if net_yield >= 0.02 else f"{pct(0.02 - net_yield, 2)} short"),
+            delta_color="normal" if net_yield >= 0.02 else "inverse",
+            help="(Rent − operating costs) ÷ price. Excludes financing and tax. "
+                 "≥ 2% is reasonable; < 1% means operating costs eat the rent.")
+    else:
+        current_rent_mo = s.live.current_monthly_rent_warm_eur or 0
+        if current_rent_mo > 0:
+            delta_vs_rent = cost_mo - current_rent_mo
+            b1.metric(
+                "Ownership vs current rent",
+                f"{eur(cost_mo, 0)} / mo",
+                delta=(f"{eur(delta_vs_rent, 0)}/mo more"
+                       if delta_vs_rent > 0 else
+                       f"{eur(-delta_vs_rent, 0)}/mo less"),
+                delta_color="inverse" if delta_vs_rent > 0 else "normal",
+                help=f"Year-1 monthly ownership cost (loan + op costs) vs. "
+                     f"your current all-in rent of {eur(current_rent_mo, 0)}/mo. "
+                     f"A positive delta means buying costs more than renting "
+                     f"today — but you're also building equity on the loan.")
+        else:
+            b1.metric(
+                "Year-1 monthly cost",
+                eur(cost_mo, 0),
+                help="Loan payment + operating costs per month. No rent "
+                     "income offsets this in live mode. Set your current "
+                     "warm rent in the sidebar to compare directly.")
+        b2.metric(
+            "Cost per m² / year",
+            eur(cost_per_m2_yr, 0),
+            help="Year-1 loan + operating costs, divided by living space. "
+                 "Compare to local Kaltmiete per m²/year — if ownership costs "
+                 "a lot more, renting may be the better deal.")
+    b3.metric(
+        "Loan-to-value (LTV)",
+        pct(ltv, 1),
+        delta=("≤ 80% bank floor" if ltv <= 0.80 else f"+{pct(ltv - 0.80, 1)} over"),
+        delta_color="normal" if ltv <= 0.80 else "inverse",
+        help="Total debt ÷ purchase price. German banks typically cap at "
+             "80% LTV for residential lending (90%+ with worse rates).")
+    b4.metric(
+        "Years to debt-free",
+        f"{result.years_to_debt_free} yr",
+        help="When all loan balances reach 0. Compare to your retirement "
+             "horizon — debt shouldn't outlive income.")
+
+    # ---------- Pass/fail narrative strip ----------
+    checks = []
+    checks.append((loan_pct <= 0.30,
+                   f"Loan payment is {pct(loan_pct, 1)} of income",
+                   f"Loan payment is {pct(loan_pct, 1)} of income — above the 30% rule"))
+    checks.append((burden_pct <= 0.30,
+                   f"Net burden is {pct(burden_pct, 1)} of income",
+                   f"Net burden is {pct(burden_pct, 1)} of income — above the 30% rule"))
+    checks.append((down_pct >= 0.20,
+                   f"Down payment is {pct(down_pct, 1)} of price (≥ 20% floor)",
+                   f"Down payment is only {pct(down_pct, 1)} of price — below the 20% floor"))
+    checks.append((abs(funding_gap) < 1000,
+                   f"Funding plan closes: capital + loans ≈ total cost ({eur(total_cost)})",
+                   (f"Under-funded by {eur(funding_gap)} — increase a loan or capital"
+                    if funding_gap > 0 else
+                    f"Over-funded by {eur(-funding_gap)} — reduce a loan")))
+    checks.append((ltv <= 0.80,
+                   f"LTV is {pct(ltv, 1)} (≤ 80% bank floor)",
+                   f"LTV is {pct(ltv, 1)} — above the typical 80% cap, expect worse rates"))
+    if s.mode == "rent":
+        checks.append((gross_yield >= 0.03,
+                       f"Gross yield is {pct(gross_yield, 2)} (≥ 3% rule)",
+                       f"Gross yield is only {pct(gross_yield, 2)} — below the 3% rule"))
+        checks.append((rent_mo >= cost_mo,
+                       f"Year-1 rent {eur(rent_mo)}/mo covers all costs ({eur(cost_mo)}/mo)",
+                       f"Year-1 rent {eur(rent_mo)}/mo doesn't cover costs {eur(cost_mo)}/mo"))
+    else:
+        current_rent_mo = s.live.current_monthly_rent_warm_eur or 0
+        if current_rent_mo > 0:
+            checks.append((cost_mo <= current_rent_mo,
+                           f"Ownership ({eur(cost_mo)}/mo) is cheaper than current rent ({eur(current_rent_mo)}/mo)",
+                           f"Ownership ({eur(cost_mo)}/mo) costs more than current rent ({eur(current_rent_mo)}/mo) — you're paying for equity instead of a landlord"))
+
+    passed = [msg_ok for ok, msg_ok, _ in checks if ok]
+    failed = [msg_bad for ok, _, msg_bad in checks if not ok]
+
+    if failed:
+        st.error("❌ " + "  \n❌ ".join(failed))
+    if passed:
+        st.success("✅ " + "  \n✅ ".join(passed))
+
+    st.markdown("---")
+
+    # ---------- Detail: property / purchase / financing / AfA ----------
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("### Property")
@@ -531,12 +707,11 @@ def tab_summary(result, s: Scenario):
         } for l in s.financing.loans])
         st.dataframe(fin_df, hide_index=True, width="stretch")
 
-        total_debt = sum(l.principal for l in s.financing.loans)
         total_monthly = sum(l.monthly_payment for l in s.financing.loans)
         st.write(f"**Total debt:** {eur(total_debt)} "
-                  f"({pct(total_debt / s.property.purchase_price)} of price)")
+                  f"({pct(total_debt / price)} of price)")
         st.write(f"**Total monthly payment:** {eur(total_monthly)}")
-        st.write(f"**Initial capital:** {eur(s.financing.initial_capital)}")
+        st.write(f"**Initial capital:** {eur(initial_cap)}")
         st.write(f"**Years until all debt cleared:** "
                   f"**{result.years_to_debt_free}**")
 
@@ -550,29 +725,6 @@ def tab_summary(result, s: Scenario):
                       f"({a.useful_life_years}-year life — "
                       f"{'pre-1925 Altbau' if s.property.year_built < 1925 else 'post-1925'})")
             st.write(f"**= Annual AfA:** {eur(a.annual_afa)}")
-
-    st.markdown("---")
-    st.markdown("### Affordability checks")
-    yr1 = result.cashflow.iloc[0]
-    income_mo = s.globals.monthly_household_income
-    cost_mo = (yr1["loan_payment"] + yr1["op_costs"]) / 12
-    rent_mo = yr1["rent_net"] / 12 if s.mode == "rent" else 0
-    burden_mo = max(0, cost_mo - rent_mo)
-
-    a, b, c = st.columns(3)
-    a.metric("Monthly cost", eur(cost_mo, 0))
-    b.metric("Monthly rent (net)", eur(rent_mo, 0))
-    c.metric("Net burden on salary", eur(burden_mo, 0),
-              delta=f"{pct(burden_mo / income_mo, 1)} of income",
-              delta_color="inverse" if burden_mo / income_mo > 0.30 else "normal")
-
-    if burden_mo / income_mo > 0.30:
-        st.warning(f"⚠️ Year-1 burden is {pct(burden_mo / income_mo, 1)} of income, "
-                    f"above the 30% rule of thumb.")
-    elif s.mode == "rent" and rent_mo >= cost_mo:
-        st.success("✅ Rent covers all year-1 costs.")
-    else:
-        st.info(f"Year-1 burden is {pct(burden_mo / income_mo, 1)} of income.")
 
 
 def tab_compare(result_live, result_rent, s: Scenario):
@@ -1169,6 +1321,20 @@ def main():
     with tabs[6]: tab_capex(result_current, s)
     with tabs[7]: tab_tax(result_current, s)
     with tabs[8]: tab_methodology()
+
+    _render_footer()
+
+
+def _render_footer():
+    st.markdown("---")
+    st.markdown(
+        "<div style='text-align: center; color: #6b7280; font-size: 0.85rem; "
+        "padding: 0.5rem 0;'>"
+        "Made by <a href='http://nicolobrandizzi.com/' target='_blank' "
+        "style='color: #4E79A7; text-decoration: none;'>Nicolo' Brandizzi</a>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
 
 if __name__ == "__main__":
