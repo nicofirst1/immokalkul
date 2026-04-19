@@ -539,6 +539,15 @@ def tab_summary(result, s: Scenario, afford: dict):
     """High-level dashboard. Affordability + returns at the top, then detail."""
     st.markdown("## Summary")
 
+    if s.mode == "live" and (s.live.current_monthly_rent_warm_eur or 0) == 0:
+        st.warning(
+            "⚠ **Set 'Current rent you pay now (warm, €/mo)' in the "
+            "🛏 Live parameters sidebar.** Without it, the cumulative wealth "
+            "chart treats ownership as 100 % pure outflow and doesn't credit "
+            "the rent you'd otherwise pay — so live mode looks artificially "
+            "hundreds of thousands of euros worse than reality."
+        )
+
     # ---------- In-context on-ramp: collapsed walkthrough ----------
     with st.expander("🚀 New here? 2-minute walkthrough", expanded=False):
         st.markdown(
@@ -781,6 +790,13 @@ def tab_compare(result_live, result_rent, s: Scenario):
     """Side-by-side live vs rent comparison."""
     st.markdown("## Buy vs Rent comparison")
     st.caption("Same property, both modes computed in parallel. Pick whichever pencils out.")
+
+    if (s.live.current_monthly_rent_warm_eur or 0) == 0:
+        st.warning(
+            "⚠ **Live mode isn't being credited for avoided rent.** Set "
+            "'Current rent you pay now (warm, €/mo)' in the 🛏 Live parameters "
+            "sidebar — without it the red (live) line is artificially low."
+        )
 
     # Cross-mode verdict: one sentence naming the 50-year winner + the month-1 winner
     final_live = float(result_live.cashflow["cumulative"].iloc[-1])

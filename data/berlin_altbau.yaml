@@ -58,6 +58,7 @@ live:
   people_in_household: 2
   large_appliances: 4
   needs_kitchen_replacement: false
+  current_monthly_rent_warm_eur: 1650   # all-in Warmmiete (Berlin Altbau 2026)
 
 globals:
   monthly_household_income: 6500

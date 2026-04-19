@@ -59,6 +59,7 @@ live:
   people_in_household: 4
   large_appliances: 5
   needs_kitchen_replacement: false
+  current_monthly_rent_warm_eur: 2300   # all-in Warmmiete (Köln suburbs SFH 2026)
 
 globals:
   monthly_household_income: 7000
