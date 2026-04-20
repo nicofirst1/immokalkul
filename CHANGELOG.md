@@ -7,6 +7,18 @@ All notable changes to **immokalkul** are documented here. Format based on
 Minor versions correspond to audit cycles — each audit report and its
 actionable-items list live in [`docs/audits/`](docs/audits/).
 
+## [1.7.2] — 2026-04-20
+
+**Human UX audit v1 — complex item [C10], layer 3.** Streamlit UI smoke tests via `streamlit.testing.v1.AppTest`.
+
+### Added
+- `tests/test_app_smoke.py` — runs the full Streamlit app for each of the 4 sample YAMLs + 3 hypothesis-generated scenarios, asserting no uncaught Python exceptions and no catch-all "Something went wrong" crash banner
+- Interaction tests: toggle mode radio + drag marginal-tax-rate slider — regression guards for the [C1] widget-generation fix
+- 99 total tests (was 92), 2.95 s runtime
+
+### Changed
+- `APP_VERSION` bumped to 1.7.2
+
 ## [1.7.1] — 2026-04-20
 
 **Human UX audit v1 — complex item [C10], layers 1 + 2.** Property-based fuzz tests and a hand-curated YAML noise corpus. The fuzz surfaced two real robustness bugs; both are fixed here.
