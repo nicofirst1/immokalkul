@@ -91,6 +91,16 @@ class CapexItem:
                                            # False = Erhaltungsaufwand → immediately
                                            # deductible as Werbungskosten
 
+    def __post_init__(self) -> None:
+        if self.cost_eur < 0:
+            raise ValueError(
+                f"CapexItem {self.name!r}: cost_eur must be ≥ 0, got "
+                f"{self.cost_eur}")
+        if self.year_due < 1900:
+            raise ValueError(
+                f"CapexItem {self.name!r}: year_due must be ≥ 1900, got "
+                f"{self.year_due}")
+
 
 @dataclass
 class RentParameters:

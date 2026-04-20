@@ -5,10 +5,29 @@ from __future__ import annotations
 
 import pytest
 
-from immokalkul import rules_de
+from immokalkul import CapexItem, rules_de
 from immokalkul.capex import auto_schedule, estimate_component_cost
 
 from .conftest import make_scenario
+
+
+def test_capexitem_validates_inputs() -> None:
+    """Data-level validator — blocks bad YAMLs / test fixtures loudly
+    instead of letting NaN / negative years slip into the engine."""
+    # Happy path.
+    item = CapexItem(name="Roof", cost_eur=20_000, year_due=2030)
+    assert item.name == "Roof"
+
+    # Zero cost is fine (placeholder capex pinned to a year).
+    CapexItem(name="Placeholder", cost_eur=0, year_due=2030)
+
+    # Negative cost → ValueError.
+    with pytest.raises(ValueError, match="cost_eur"):
+        CapexItem(name="Bad", cost_eur=-100, year_due=2030)
+
+    # Year < 1900 (e.g. 0 from NaN coercion) → ValueError.
+    with pytest.raises(ValueError, match="year_due"):
+        CapexItem(name="Bad", cost_eur=5_000, year_due=0)
 
 
 def _heating_component():

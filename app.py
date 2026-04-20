@@ -40,8 +40,7 @@ st.set_page_config(
 DATA_DIR = Path(__file__).parent / "data"
 DEFAULT_SCENARIO = DATA_DIR / "bonn_poppelsdorf.yaml"
 
-APP_VERSION = "1.6.0"
-REPO_URL = "https://github.com/nicofirst1/immokalkul"
+APP_VERSION = "1.6.3"
 
 
 @st.cache_data(show_spinner=False)
@@ -660,25 +659,33 @@ def sidebar_inputs():
                     "Capitalized?": st.column_config.CheckboxColumn(),
                 })
             new_cx = []
+            incomplete_rows: list[str] = []
             for _, row in edited_cx.iterrows():
-                if pd.notna(row["Name"]) and row["Name"] and float(row["Cost (€)"] or 0) > 0:
+                name_ok = pd.notna(row["Name"]) and bool(row["Name"])
+                cost_ok = pd.notna(row["Cost (€)"]) and float(row["Cost (€)"] or 0) > 0
+                year_ok = pd.notna(row["Year due"])
+                if name_ok and cost_ok and year_ok:
                     new_cx.append(CapexItem(
                         name=str(row["Name"]),
                         cost_eur=float(row["Cost (€)"]),
                         year_due=int(row["Year due"]),
                         is_capitalized=bool(row["Capitalized?"]),
                     ))
+                elif name_ok and (not cost_ok or not year_ok):
+                    missing = []
+                    if not cost_ok: missing.append("cost")
+                    if not year_ok: missing.append("year")
+                    incomplete_rows.append(f"{row['Name']} (missing {', '.join(missing)})")
+            if incomplete_rows:
+                st.warning(
+                    "Skipped incomplete capex rows: "
+                    + "; ".join(incomplete_rows)
+                    + ". Fill in cost **and** year to include them.")
             s.user_capex = new_cx
             s.auto_schedule_capex = st.checkbox(
                 "Auto-schedule component capex (heating, roof, etc.)",
                 s.auto_schedule_capex,
                 help="Uses component lifecycle table to project replacements based on year built.")
-
-        # --- Sidebar footer: open-source + version ---
-        st.markdown("---")
-        st.caption(
-            f"🔓 **Open source** — [nicofirst1/immokalkul]({REPO_URL}) "
-            f"· v{APP_VERSION}")
 
 
 # -----------------------------------------------------------------------------

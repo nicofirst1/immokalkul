@@ -7,6 +7,22 @@ All notable changes to **immokalkul** are documented here. Format based on
 Minor versions correspond to audit cycles — each audit report and its
 actionable-items list live in [`docs/audits/`](docs/audits/).
 
+## [1.6.3] — 2026-04-20
+
+**Human UX audit v1 — complex item [C6].** Capex editor no longer hard-crashes on partially-filled rows.
+
+### Added
+- `CapexItem.__post_init__` validator — rejects `cost_eur < 0` or `year_due < 1900` with a clear `ValueError`
+- Sidebar capex editor surfaces skipped incomplete rows via `st.warning` (previously `int(NaN)` crashed the app)
+- `test_capexitem_validates_inputs` covering valid / negative-cost / zero-year cases
+
+### Changed
+- `APP_VERSION` bumped to 1.6.3 (main-footer version line)
+
+### Removed
+- Sidebar "🔓 Open source" footer caption (the main-page footer already carries the GitHub link)
+- Orphaned `REPO_URL` constant
+
 ## [1.6.2] — 2026-04-20
 
 **Human UX audit v1 — complex item [C9].** Adds an optional total monthly housing ceiling as a second, distinct affordability cap — not an engine knob.
