@@ -61,6 +61,7 @@ property_names = st.text(
 
 @st.composite
 def properties(draw):
+    from immokalkul.rules_de import Bundesland
     return Property(
         name=draw(property_names),
         purchase_price=draw(st.floats(min_value=50_000, max_value=5_000_000,
@@ -84,6 +85,11 @@ def properties(draw):
             st.floats(min_value=50, max_value=10_000,
                       allow_nan=False, allow_infinity=False))),
         is_denkmal=draw(st.booleans()),
+        bundesland=draw(st.sampled_from(list(Bundesland))),
+        grunderwerbsteuer_rate=draw(st.one_of(
+            st.none(),
+            st.floats(min_value=0.0, max_value=0.10,
+                      allow_nan=False, allow_infinity=False))),
     )
 
 

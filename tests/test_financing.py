@@ -88,6 +88,49 @@ def test_notary_grundbuch_default_split_matches_rules_de() -> None:
     assert pc.notary_grundbuch == pytest.approx(400_000 * 0.02, abs=1.0)
 
 
+def test_grunderwerbsteuer_uses_property_bundesland() -> None:
+    """Germany-expansion Phase 1: compute_purchase_costs must consult
+    Property.bundesland instead of a hardcoded NRW rate."""
+    from immokalkul import rules_de
+    s = make_scenario(price=600_000)
+    # Bayern — 3.5 %
+    s.property.bundesland = rules_de.Bundesland.BY
+    pc = compute_purchase_costs(s.property)
+    assert pc.grunderwerbsteuer == pytest.approx(600_000 * 0.035)
+    # NRW — 6.5 %
+    s.property.bundesland = rules_de.Bundesland.NW
+    pc = compute_purchase_costs(s.property)
+    assert pc.grunderwerbsteuer == pytest.approx(600_000 * 0.065)
+    # Berlin — 6.0 %
+    s.property.bundesland = rules_de.Bundesland.BE
+    pc = compute_purchase_costs(s.property)
+    assert pc.grunderwerbsteuer == pytest.approx(600_000 * 0.060)
+
+
+def test_grunderwerbsteuer_explicit_override_beats_state_table() -> None:
+    """Property.grunderwerbsteuer_rate override must take precedence over
+    the Bundesland lookup — same pattern as notary_pct / grundbuch_pct."""
+    from immokalkul import rules_de
+    s = make_scenario(price=500_000)
+    s.property.bundesland = rules_de.Bundesland.BY  # table says 3.5 %
+    s.property.grunderwerbsteuer_rate = 0.049       # user pins 4.9 %
+    pc = compute_purchase_costs(s.property)
+    assert pc.grunderwerbsteuer == pytest.approx(500_000 * 0.049)
+
+
+def test_grunderwerbsteuer_property_validator_rejects_bad_rate() -> None:
+    """Property.__post_init__ must reject nonsense rates."""
+    from immokalkul import Property
+    with pytest.raises(ValueError, match="grunderwerbsteuer_rate"):
+        Property(name="Bad", purchase_price=400_000, living_space_m2=80,
+                 plot_size_m2=80, year_built=2000,
+                 grunderwerbsteuer_rate=-0.01)
+    with pytest.raises(ValueError, match="grunderwerbsteuer_rate"):
+        Property(name="Bad", purchase_price=400_000, living_space_m2=80,
+                 plot_size_m2=80, year_built=2000,
+                 grunderwerbsteuer_rate=0.25)
+
+
 def test_notary_grundbuch_overrides_are_honoured() -> None:
     """Explicit notary_rate / grundbuch_rate kwargs must flow through to
     the breakdown — the mechanism the sidebar Advanced expander uses."""

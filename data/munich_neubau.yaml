@@ -22,6 +22,7 @@ property:
   has_elevator: true
   bodenrichtwert_eur_per_m2: 3500
   is_denkmal: false
+  bundesland: BY                  # Bayern — Grunderwerbsteuer 3.5 %
   notes: "Modern KfW-55 build. 3% AfA applies (post-2023 rule, §7 Abs. 4 Nr. 2a EStG)."
   listing_url: ""
 

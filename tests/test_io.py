@@ -59,6 +59,44 @@ def test_legacy_adaptive_mamma_migrates(tmp_path: Path) -> None:
     assert bank.is_adaptive is False
 
 
+def test_bundesland_roundtrip(tmp_path: Path, bonn_scenario) -> None:
+    """Germany-expansion Phase 1: Bundesland must serialize as its short
+    `.value` code ("NW", "BY", …) and reconstruct as an enum on load."""
+    from immokalkul import rules_de
+    # Mutate to a non-default state so the test isn't tautological.
+    bonn_scenario.property.bundesland = rules_de.Bundesland.BY
+    out = tmp_path / "bundesland.yaml"
+    save_scenario(bonn_scenario, out)
+
+    blob = yaml.safe_load(out.read_text())
+    assert blob["property"]["bundesland"] == "BY", (
+        f"expected enum serialised as 'BY', got {blob['property'].get('bundesland')!r}")
+
+    reloaded = load_scenario(out)
+    assert reloaded.property.bundesland == rules_de.Bundesland.BY
+    assert isinstance(reloaded.property.bundesland, rules_de.Bundesland)
+
+
+def test_missing_bundesland_defaults_to_nw(tmp_path: Path) -> None:
+    """Old YAMLs without a `bundesland:` key must load with NRW default —
+    backward-compat for pre-expansion scenarios."""
+    from immokalkul import rules_de
+    legacy = {
+        "mode": "rent",
+        "property": {
+            "name": "pre-expansion", "purchase_price": 400000.0,
+            "living_space_m2": 80.0, "plot_size_m2": 80.0, "year_built": 2000,
+        },
+        "financing": {"initial_capital": 100000.0, "loans": []},
+        "costs": {}, "rent": {"monthly_rent": 1500.0},
+        "live": {}, "globals": {}, "user_capex": [],
+    }
+    path = tmp_path / "legacy.yaml"
+    path.write_text(yaml.safe_dump(legacy))
+    s = load_scenario(path)
+    assert s.property.bundesland == rules_de.Bundesland.NW
+
+
 def test_saved_yaml_has_no_legacy_adaptive_mamma(tmp_path: Path,
                                                    bonn_scenario) -> None:
     """The current writer must never emit the legacy flag."""

@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from typing import Literal, Optional
 from datetime import date
 
+from .rules_de import Bundesland
+
 Mode = Literal["live", "rent"]
 PropertyType = Literal["apartment", "house"]
 HeatingType = Literal["gas", "oil", "heat_pump", "district", "electric", "wood"]
@@ -28,8 +30,23 @@ class Property:
     has_elevator: bool = False
     bodenrichtwert_eur_per_m2: Optional[float] = None  # if known; else estimated
     is_denkmal: bool = False               # listed building (special AfA rules)
+    bundesland: Bundesland = Bundesland.NW  # drives Grunderwerbsteuer rate when
+                                           # `grunderwerbsteuer_rate` override
+                                           # is unset. Default NRW preserves
+                                           # back-compat with existing YAMLs.
+    grunderwerbsteuer_rate: Optional[float] = None  # per-scenario override —
+                                           # beats the state lookup. None →
+                                           # use rules_de.GRUNDERWERBSTEUER_RATES
+                                           # for the selected Bundesland.
     notes: str = ""
     listing_url: str = ""
+
+    def __post_init__(self) -> None:
+        if self.grunderwerbsteuer_rate is not None and not (
+                0 <= self.grunderwerbsteuer_rate <= 0.15):
+            raise ValueError(
+                f"Property {self.name!r}: grunderwerbsteuer_rate must be in "
+                f"[0, 0.15], got {self.grunderwerbsteuer_rate}")
 
     def effective_renovation_age_years(self, today_year: int) -> int:
         """Years since last major renovation (or original build, if none)."""

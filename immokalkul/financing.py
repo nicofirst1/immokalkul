@@ -9,6 +9,7 @@ Handles:
 """
 from __future__ import annotations
 from dataclasses import dataclass
+from typing import Optional
 import pandas as pd
 from . import rules_de
 from .models import Property, Financing, Loan, GlobalParameters
@@ -34,12 +35,19 @@ class PurchaseCostBreakdown:
 
 
 def compute_purchase_costs(p: Property, renovation_capitalized: float = 0.0,
-                            grunderwerbsteuer_rate: float = rules_de.GRUNDERWERBSTEUER_NRW,
+                            grunderwerbsteuer_rate: Optional[float] = None,
                             makler_rate: float = rules_de.MAKLERPROVISION_TYPICAL,
                             notary_rate: float = rules_de.NOTARY_FEE,
                             grundbuch_rate: float = rules_de.GRUNDBUCH_FEE,
                             ) -> PurchaseCostBreakdown:
     price = p.purchase_price
+    # Resolve Grunderwerbsteuer: explicit kwarg → property override →
+    # state lookup. Callers can still pass a hardcoded rate for tests.
+    if grunderwerbsteuer_rate is None:
+        if p.grunderwerbsteuer_rate is not None:
+            grunderwerbsteuer_rate = p.grunderwerbsteuer_rate
+        else:
+            grunderwerbsteuer_rate = rules_de.grunderwerbsteuer_rate(p.bundesland)
     grunderwerb = price * grunderwerbsteuer_rate
     makler = price * makler_rate
     notary = price * notary_rate

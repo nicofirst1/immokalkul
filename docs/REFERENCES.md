@@ -62,6 +62,54 @@ For the programmatic citations that appear in `immokalkul/rules_de.py`, legal re
 
 - [ImmobilienScout24 listing — the Poppelsdorf property](https://www.immobilienscout24.de/expose/161172839) — reference listing for the Bonn sample YAML.
 
+## Grunderwerbsteuer (per Bundesland)
+
+Federal statute: [§ 1 GrEStG — Grunderwerbsteuergesetz](https://www.gesetze-im-internet.de/grestg_1983/__1.html). Rates are set by each state's **Grunderwerbsteuer-Durchführungsgesetz** (or equivalent). Current rates as of 2026:
+
+| Bundesland | Rate | Statute / source |
+|---|---|---|
+| Bayern (BY) | 3.5 % | § 11 GrEStG — federal baseline, never raised |
+| Sachsen (SN) | 5.5 % | [Grunderwerbsteuererhöhungsgesetz Sachsen 2022](https://www.revosax.sachsen.de/vorschrift/19145) (effective 1 Jan 2023) |
+| Hamburg (HH) | 5.5 % | [HmbGVBl. 2022 Nr. 42](https://www.hamburg.de/contentblob/16500094/) (effective 1 Jan 2023) |
+| Baden-Württemberg (BW) | 5.0 % | [GBl. BW 2011 S. 493](https://www.landesrecht-bw.de/) |
+| Bremen (HB) | 5.0 % | Gesetz zur Änderung des GrEStG Bremen 2014 |
+| Niedersachsen (NI) | 5.0 % | GrEStG-DG NI 2014 |
+| Rheinland-Pfalz (RP) | 5.0 % | LdGrEStGDG RP 2012 |
+| Sachsen-Anhalt (ST) | 5.0 % | GrEStGDG LSA 2012 |
+| Berlin (BE) | 6.0 % | [GVBl. Berlin 2014 S. 3](https://gesetze.berlin.de/) |
+| Hessen (HE) | 6.0 % | GrEStGDG HE 2013 |
+| Mecklenburg-Vorpommern (MV) | 6.0 % | GrEStGDG MV 2019 |
+| Brandenburg (BB) | 6.5 % | GrEStGDG BB 2015 |
+| Nordrhein-Westfalen (NW) | 6.5 % | [GV. NRW. 2014 S. 827](https://recht.nrw.de/) |
+| Saarland (SL) | 6.5 % | GrEStGDG SL 2015 |
+| Schleswig-Holstein (SH) | 6.5 % | GrEStGDG SH 2014 |
+| Thüringen (TH) | 6.5 % | GrEStGDG TH 2017 |
+
+Engine-side table: `immokalkul/rules_de.py::GRUNDERWERBSTEUER_RATES`. Test pin: `tests/test_rules_de.py::test_grunderwerbsteuer_rate_per_state` — must be updated whenever a state changes its rate.
+
+## Bodenrichtwert — per state BORIS portal
+
+Don't scrape; link users to the right portal and accept manual input.
+
+| State | Portal |
+|---|---|
+| Baden-Württemberg | https://www.gutachterausschuesse-bw.de/ |
+| Bayern | https://geoportal.bayern.de/ |
+| Berlin | https://fbinter.stadt-berlin.de/ |
+| Brandenburg | https://geobasis-bb.de/ |
+| Bremen | https://www.geo.bremen.de/ |
+| Hamburg | https://geoportal.hamburg.de/ |
+| Hessen | https://www.gds.hessen.de/ |
+| Mecklenburg-Vorpommern | https://www.geoportal-mv.de/ |
+| Niedersachsen | https://www.boris.niedersachsen.de/ |
+| Nordrhein-Westfalen | https://www.boris.nrw.de/ |
+| Rheinland-Pfalz | https://www.geoportal.rlp.de/ |
+| Saarland | https://geoportal.saarland.de/ |
+| Sachsen | https://www.boris.sachsen.de/ |
+| Sachsen-Anhalt | https://www.lvermgeo.sachsen-anhalt.de/ |
+| Schleswig-Holstein | https://www.boris-sh.de/ |
+| Thüringen | https://www.geoportal-th.de/ |
+
 ---
 
 ## Reliability ranking

@@ -40,7 +40,7 @@ st.set_page_config(
 DATA_DIR = Path(__file__).parent / "data"
 DEFAULT_SCENARIO = DATA_DIR / "bonn_poppelsdorf.yaml"
 
-APP_VERSION = "1.8.0"
+APP_VERSION = "2.0.0"
 
 
 @st.cache_data(show_spinner=False)
@@ -331,6 +331,51 @@ def sidebar_inputs():
         with st.expander("🏘 Property", expanded=False):
             s.property.name = st.text_input(
                 "Name", s.property.name, key=wk("property_name"))
+
+            # Bundesland selector — drives Grunderwerbsteuer rate.
+            from immokalkul.rules_de import (
+                Bundesland as _Bundesland,
+                BUNDESLAND_LABELS as _BL_LABELS,
+                GRUNDERWERBSTEUER_RATES as _GRESTG,
+            )
+            _state_options = list(_Bundesland)
+            _current_state_idx = _state_options.index(s.property.bundesland)
+            s.property.bundesland = st.selectbox(
+                "Bundesland",
+                _state_options,
+                index=_current_state_idx,
+                format_func=lambda b: f"{_BL_LABELS[b]} ({b.value})",
+                key=wk("bundesland"),
+                help="**Drives the Grunderwerbsteuer rate** (3.5 %–6.5 %, "
+                     "varies by state per § 1 GrEStG). Defaults to "
+                     "Nordrhein-Westfalen for back-compat; override with "
+                     "the state where your property is located. The "
+                     "*Grunderwerbsteuer rate* override below lets you "
+                     "pin an explicit rate if you're skeptical of the "
+                     "table or your closing statement differs.")
+            _default_grestg = _GRESTG[s.property.bundesland]
+            st.caption(
+                f"Grunderwerbsteuer rate for "
+                f"**{_BL_LABELS[s.property.bundesland]}**: "
+                f"**{_default_grestg * 100:.1f} %** "
+                f"(source: state GrEStG-DG; see docs/REFERENCES.md).")
+            _current_override = (s.property.grunderwerbsteuer_rate * 100
+                                  if s.property.grunderwerbsteuer_rate is not None
+                                  else _default_grestg * 100)
+            _new_rate = st.number_input(
+                "Grunderwerbsteuer rate (%) — leave at default to use the "
+                "state table",
+                value=float(_current_override), step=0.1, format="%.2f",
+                min_value=0.0, max_value=15.0,
+                key=wk("grunderwerbsteuer_rate"),
+                help="Override if you want to pin a specific rate (e.g. "
+                     "stress-test what a future rate hike would cost). "
+                     "Leaving this at the state default stores `None` on "
+                     "the scenario, so it tracks the table if rates change.")
+            s.property.grunderwerbsteuer_rate = (
+                _new_rate / 100
+                if abs(_new_rate - _default_grestg * 100) > 1e-6
+                else None)
             c1, c2 = st.columns(2)
             with c1:
                 s.property.purchase_price = st.number_input(
@@ -1269,9 +1314,19 @@ def tab_summary(result, s: Scenario, afford: dict):
         with st.container(border=True):
             st.markdown("### Purchase costs")
             p = result.purchase
+            # Resolve the effective Grunderwerbsteuer rate + state label so
+            # the Summary row names the source the user set in the sidebar.
+            _bl = s.property.bundesland
+            _effective_grestg = (
+                s.property.grunderwerbsteuer_rate
+                if s.property.grunderwerbsteuer_rate is not None
+                else rules_de.grunderwerbsteuer_rate(_bl))
+            _grestg_label = (
+                f"Property transfer tax (Grunderwerbsteuer, "
+                f"{_effective_grestg * 100:.1f} % {_bl.value})")
             df = pd.DataFrame([
                 ("Purchase price", p.purchase_price),
-                ("Property transfer tax (Grunderwerbsteuer, 6.5% NRW)", p.grunderwerbsteuer),
+                (_grestg_label, p.grunderwerbsteuer),
                 ("Agent fee (Maklerprovision, ~3.57% buyer share)", p.maklerprovision),
                 ("Notary (Notar, ~1.5%)", p.notary_fee),
                 ("Land registry (Grundbuch, ~0.5%)", p.grundbuch_fee),
@@ -1290,7 +1345,9 @@ def tab_summary(result, s: Scenario, afford: dict):
             with st.expander("What are these fees?", expanded=False):
                 st.markdown(
                     "- **Grunderwerbsteuer** — one-time property-transfer "
-                    "tax. Varies by Bundesland; NRW is 6.5%. Goes to the "
+                    "tax. Varies by Bundesland (3.5 %–6.5 %); change the "
+                    "**Bundesland** in the sidebar Property expander to "
+                    "match where the property is located. Goes to the "
                     "state, not deductible.\n"
                     "- **Maklerprovision** — estate-agent commission. Since "
                     "2020 the buyer covers ~half (~3.57% incl. VAT in NRW).\n"

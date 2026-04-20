@@ -5,12 +5,45 @@ Lets users save/load property scenarios as plain text files.
 """
 from __future__ import annotations
 from dataclasses import fields
+from enum import Enum
 from pathlib import Path
 import yaml
 from .models import (Scenario, Property, Loan, Financing, CapexItem,
                       RentParameters, LiveParameters, CostInputs, GlobalParameters)
+from .rules_de import Bundesland
 
 _VALID_MODES = {"live", "rent"}
+
+
+def _to_yaml_safe(value):
+    """Coerce a Python value into something yaml.safe_dump accepts. Enums
+    are written as their `.value` (e.g. "NW" for Bundesland.NW)."""
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, dict):
+        return {k: _to_yaml_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_to_yaml_safe(v) for v in value]
+    return value
+
+
+def _coerce_enum_fields(cls, d: dict) -> dict:
+    """Convert known enum-typed fields from strings back to enum instances.
+    Silent no-op for fields that aren't enums."""
+    result = dict(d)
+    for f in fields(cls):
+        if f.name in result and isinstance(f.type, type) and issubclass(f.type, Enum):
+            val = result[f.name]
+            if isinstance(val, str):
+                result[f.name] = f.type(val)
+    # Hand-wired special case: Property.bundesland — the `f.type` annotation
+    # comes through as a string under `from __future__ import annotations`,
+    # so the generic issubclass check above misses it.
+    if cls is Property and "bundesland" in result:
+        val = result["bundesland"]
+        if isinstance(val, str):
+            result["bundesland"] = Bundesland(val)
+    return result
 
 
 def _only_known_fields(cls, d: dict) -> dict:
@@ -26,7 +59,8 @@ def load_scenario(path: str | Path) -> Scenario:
     with open(path) as f:
         d = yaml.safe_load(f)
 
-    prop = Property(**_only_known_fields(Property, d["property"]))
+    prop = Property(**_coerce_enum_fields(
+        Property, _only_known_fields(Property, d["property"])))
     loans = [Loan(**_only_known_fields(Loan, l))
              for l in d["financing"]["loans"]]
 
@@ -100,6 +134,8 @@ def save_scenario(scenario: Scenario, path: str | Path) -> None:
 
 
 def _asdict(obj):
-    """Lightweight dataclass-to-dict that avoids dependencies."""
+    """Lightweight dataclass-to-dict that avoids dependencies. Enum
+    values are normalised to their `.value` so yaml.safe_dump accepts
+    the result."""
     from dataclasses import asdict
-    return asdict(obj)
+    return _to_yaml_safe(asdict(obj))

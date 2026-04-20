@@ -7,6 +7,39 @@ All notable changes to **immokalkul** are documented here. Format based on
 Minor versions correspond to audit cycles — each audit report and its
 actionable-items list live in [`docs/audits/`](docs/audits/).
 
+## [2.0.0] — 2026-04-20
+
+**Germany expansion — Phase 1: Grunderwerbsteuer per Bundesland.** Major version bump because this is the first ship that changes engine output for existing non-NRW YAMLs (Munich and Berlin samples had silently wrong Grunderwerbsteuer at NRW's 6.5 %). Closes the largest non-NRW correctness gap from `docs/audits/finance/v1/germany_expansion.md` — Munich, Berlin, and Bremen / Bayern / Sachsen etc. samples were silently using NRW's 6.5 % rate. Up to €22.5k of silently-wrong tax on a €750k Bayern purchase.
+
+### Added
+- `rules_de.Bundesland` str-Enum covering all 16 German federal states (ISO 3166-2:DE two-letter codes as `.value`)
+- `rules_de.BUNDESLAND_LABELS` — full German names for UI display
+- `rules_de.GRUNDERWERBSTEUER_RATES` + `rules_de.grunderwerbsteuer_rate(b)` — 2026 rates for all 16 states, each cited in `docs/REFERENCES.md`
+- `Property.bundesland: Bundesland = Bundesland.NW` — default preserves existing behaviour
+- `Property.grunderwerbsteuer_rate: Optional[float] = None` — per-scenario override (mirrors [C7] notary/Grundbuch pattern). Property `__post_init__` validator rejects rates outside [0, 0.15]
+- Sidebar: Bundesland `st.selectbox` in the Property expander with the full 16-state list, explicit "NRW is the default" caption, effective-rate display, optional override number_input
+- Summary purchase-costs table: the Grunderwerbsteuer row label becomes dynamic, showing the state code and effective rate
+- YAML round-trip: `io.py` serialises `bundesland` as its `.value` short code (`"NW"`, `"BY"`, …); old YAMLs without the field default to NRW
+- Parametrised test over all 16 states + uniqueness guard + NRW-alias pin in `tests/test_rules_de.py`
+- 3 new precedence/override tests in `tests/test_financing.py`
+- 2 YAML tests in `tests/test_io.py`: round-trip preserves the enum, missing field defaults to NW
+- Fuzz strategy draws `bundesland` from the 16-state enum and optional `grunderwerbsteuer_rate` overrides
+- `docs/REFERENCES.md` gains a "Grunderwerbsteuer (per Bundesland)" section with the statute citation per state and a companion "Bodenrichtwert — per state BORIS portal" table
+
+### Changed
+- `compute_purchase_costs()` now resolves the Grunderwerbsteuer rate from: explicit kwarg → `property.grunderwerbsteuer_rate` override → `GRUNDERWERBSTEUER_RATES[property.bundesland]`. NRW stays the backstop
+- Sample YAMLs: `bonn_poppelsdorf.yaml` + `koeln_einfamilienhaus.yaml` explicitly declare `bundesland: NW` (no numeric change — both are NRW), `munich_neubau.yaml` declares `BY` (Grunderwerbsteuer drops 6.5 % → 3.5 %, saving €22.5k on the €750k purchase), `berlin_altbau.yaml` declares `BE` (Grunderwerbsteuer drops 6.5 % → 6.0 %, saving ~€3k)
+- `APP_VERSION` bumped to 1.8.1
+- Summary "What are these fees?" expander now points users at the sidebar Bundesland selector
+
+### Bonn pin held
+`test_bonn_reference_cumulative` still expects €286,585. Bonn is NRW → Grunderwerbsteuer rate unchanged → no drift.
+
+### Deferred to later phases
+- **Phase 2** (Grundsteuer per state model — Bundesmodell / Bayern Flächenmodell / BW Bodenwertmodell / HH Wohnlagenmodell / HE Flächen-Faktor / NI Flächen-Lage)
+- **Phase 3** (per-city Hebesatz table)
+- **Phase 4** (full per-state non-Bundesmodell formulas)
+
 ## [1.8.0] — 2026-04-20
 
 **Human UX audit v1 — complex item [C3].** Sondertilgung (annual extra repayments) and Zinsbindung (informational fixed-term length) added to every loan tranche. Post-fixed rate switching intentionally dropped — it would require the user to guess a future market rate they don't have, so the Debt tab surfaces the Zinsbindung end date as a caption and holds the rate constant past it.

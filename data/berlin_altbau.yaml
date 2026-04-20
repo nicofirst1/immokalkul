@@ -21,6 +21,7 @@ property:
   has_elevator: false
   bodenrichtwert_eur_per_m2: 2800
   is_denkmal: false
+  bundesland: BE                  # Berlin — Grunderwerbsteuer 6.0 %
   notes: "Pre-1925 Altbau → 2.5% AfA. Heating from 1998 is near end-of-life. Watch Anschaffungsnaher Aufwand if total reno > 15% of building value in first 3 years."
   listing_url: ""
 

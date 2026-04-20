@@ -20,6 +20,7 @@ reliability ranking and caveats, are listed in docs/REFERENCES.md.
 """
 from __future__ import annotations
 from dataclasses import dataclass
+from enum import Enum
 
 # ---------------------------------------------------------------------------
 # AfA (Absetzung für Abnutzung) — annual depreciation rate by build year
@@ -63,9 +64,82 @@ ANSCHAFFUNGSNAH_WINDOW_YEARS = 3
 
 
 # ---------------------------------------------------------------------------
-# German purchase fees (NRW)
+# Grunderwerbsteuer rates — § 1 GrEStG (federal) + per-state GrEStG-
+# Durchführungsgesetze. Rates span 3.5 %–6.5 %; most recently changed by
+# Sachsen (3.5 → 5.5 %, 1 Jan 2023) and Hamburg (4.5 → 5.5 %, 1 Jan 2023).
+# Keep in sync with docs/REFERENCES.md.
 # ---------------------------------------------------------------------------
-GRUNDERWERBSTEUER_NRW = 0.065        # 6.5% Grunderwerbsteuer in NRW (varies by Bundesland)
+class Bundesland(str, Enum):
+    """German federal states. `.value` matches the standard ISO 3166-2:DE
+    two-letter codes ("BY", "NW", …) — compact for YAML round-trip."""
+    BW = "BW"  # Baden-Württemberg
+    BY = "BY"  # Bayern
+    BE = "BE"  # Berlin
+    BB = "BB"  # Brandenburg
+    HB = "HB"  # Bremen
+    HH = "HH"  # Hamburg
+    HE = "HE"  # Hessen
+    MV = "MV"  # Mecklenburg-Vorpommern
+    NI = "NI"  # Niedersachsen
+    NW = "NW"  # Nordrhein-Westfalen
+    RP = "RP"  # Rheinland-Pfalz
+    SL = "SL"  # Saarland
+    SN = "SN"  # Sachsen
+    ST = "ST"  # Sachsen-Anhalt
+    SH = "SH"  # Schleswig-Holstein
+    TH = "TH"  # Thüringen
+
+
+BUNDESLAND_LABELS: dict[Bundesland, str] = {
+    Bundesland.BW: "Baden-Württemberg",
+    Bundesland.BY: "Bayern",
+    Bundesland.BE: "Berlin",
+    Bundesland.BB: "Brandenburg",
+    Bundesland.HB: "Bremen",
+    Bundesland.HH: "Hamburg",
+    Bundesland.HE: "Hessen",
+    Bundesland.MV: "Mecklenburg-Vorpommern",
+    Bundesland.NI: "Niedersachsen",
+    Bundesland.NW: "Nordrhein-Westfalen",
+    Bundesland.RP: "Rheinland-Pfalz",
+    Bundesland.SL: "Saarland",
+    Bundesland.SN: "Sachsen",
+    Bundesland.ST: "Sachsen-Anhalt",
+    Bundesland.SH: "Schleswig-Holstein",
+    Bundesland.TH: "Thüringen",
+}
+
+
+# 2026 rates — verified against each state's GrEStG-Durchführungsgesetz.
+# Source list in docs/REFERENCES.md §Grunderwerbsteuer.
+GRUNDERWERBSTEUER_RATES: dict[Bundesland, float] = {
+    Bundesland.BY: 0.035,   # 1997 baseline
+    Bundesland.SN: 0.055,   # raised from 3.5 % on 1 Jan 2023
+    Bundesland.HH: 0.055,   # raised from 4.5 % on 1 Jan 2023
+    Bundesland.HB: 0.050,   # 2014
+    Bundesland.NI: 0.050,   # 2014
+    Bundesland.ST: 0.050,   # 2012
+    Bundesland.RP: 0.050,   # 2012
+    Bundesland.BW: 0.050,   # 2011
+    Bundesland.BE: 0.060,   # 2014
+    Bundesland.HE: 0.060,   # 2013
+    Bundesland.MV: 0.060,   # 2019
+    Bundesland.BB: 0.065,   # 2015
+    Bundesland.NW: 0.065,   # 2015
+    Bundesland.SL: 0.065,   # 2015
+    Bundesland.SH: 0.065,   # 2014
+    Bundesland.TH: 0.065,   # 2017
+}
+
+
+def grunderwerbsteuer_rate(bundesland: Bundesland) -> float:
+    """Resolve the Grunderwerbsteuer rate for a Bundesland."""
+    return GRUNDERWERBSTEUER_RATES[bundesland]
+
+
+# Legacy alias — kept so call sites that didn't migrate still compile.
+# New code should go through grunderwerbsteuer_rate(p.bundesland).
+GRUNDERWERBSTEUER_NRW = GRUNDERWERBSTEUER_RATES[Bundesland.NW]
 MAKLERPROVISION_TYPICAL = 0.0357     # ~3.57% incl. VAT, buyer share post-
                                      # § 656c BGB (Bestellerprinzip extended
                                      # to private buyers, in force since

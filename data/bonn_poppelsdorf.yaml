@@ -19,6 +19,7 @@ property:
   has_elevator: false
   bodenrichtwert_eur_per_m2: 1300   # Bonn-Poppelsdorf range €1,000-1,600 (2024)
   is_denkmal: false
+  bundesland: NW                  # Nordrhein-Westfalen — Grunderwerbsteuer 6.5 %
   notes: "Pre-1925 Altbau, 2.5% AfA. Watch for Anschaffungsnaher Aufwand if reno > 15% of building value in first 3 yr."
   listing_url: "https://www.immobilienscout24.de/expose/161172839"
 

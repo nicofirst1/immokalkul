@@ -57,3 +57,51 @@ def test_anschaffungsnaher_constants_pinned() -> None:
     """Statute: § 6 Abs. 1 Nr. 1a EStG — 15 % threshold over a 3-year window."""
     assert rules_de.ANSCHAFFUNGSNAH_THRESHOLD_PCT == 0.15
     assert rules_de.ANSCHAFFUNGSNAH_WINDOW_YEARS == 3
+
+
+# Germany-expansion Phase 1 — pin Grunderwerbsteuer rates for all 16 states.
+# Rates as of 2026 per each state's GrEStG-Durchführungsgesetz. When a state
+# changes its rate, update the table in `rules_de.py` AND the entry here —
+# two-file update is intentional friction to prevent silent drift.
+@pytest.mark.parametrize("state_code,expected_rate", [
+    ("BW", 0.050),
+    ("BY", 0.035),
+    ("BE", 0.060),
+    ("BB", 0.065),
+    ("HB", 0.050),
+    ("HH", 0.055),
+    ("HE", 0.060),
+    ("MV", 0.060),
+    ("NI", 0.050),
+    ("NW", 0.065),
+    ("RP", 0.050),
+    ("SL", 0.065),
+    ("SN", 0.055),
+    ("ST", 0.050),
+    ("SH", 0.065),
+    ("TH", 0.065),
+])
+def test_grunderwerbsteuer_rate_per_state(state_code: str,
+                                             expected_rate: float) -> None:
+    bundesland = rules_de.Bundesland(state_code)
+    assert rules_de.grunderwerbsteuer_rate(bundesland) == pytest.approx(
+        expected_rate), (
+        f"{state_code}: table says "
+        f"{rules_de.grunderwerbsteuer_rate(bundesland) * 100:.2f} % but "
+        f"test expects {expected_rate * 100:.2f} % — update both or "
+        f"investigate")
+
+
+def test_all_16_states_have_a_rate() -> None:
+    """Guard against a Bundesland being added to the enum without a
+    corresponding entry in GRUNDERWERBSTEUER_RATES."""
+    for state in rules_de.Bundesland:
+        assert state in rules_de.GRUNDERWERBSTEUER_RATES, (
+            f"{state.value} has no Grunderwerbsteuer rate in the table")
+
+
+def test_nrw_alias_matches_table() -> None:
+    """Legacy GRUNDERWERBSTEUER_NRW alias must equal the NW entry — old
+    call sites that import the alias stay correct without migration."""
+    assert rules_de.GRUNDERWERBSTEUER_NRW == rules_de.GRUNDERWERBSTEUER_RATES[
+        rules_de.Bundesland.NW]
