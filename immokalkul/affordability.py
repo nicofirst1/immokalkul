@@ -11,6 +11,13 @@ from __future__ import annotations
 
 from .models import Scenario
 
+# Soft-warning thresholds — the "strained → danger" band above the 30 %
+# rule of thumb. Banks typically start pushing back around 40 % loan /
+# income; a net burden above 45 % of income means offsets (rent, avoided
+# rent) aren't closing the gap and the household is over-extended.
+LOAN_INCOME_WARN_THRESHOLD = 0.40
+BURDEN_INCOME_WARN_THRESHOLD = 0.45
+
 
 def _fmt_eur(x: float, decimals: int = 0) -> str:
     """Match app.py's `eur` formatter — German thousands separator."""
@@ -145,8 +152,14 @@ def compute_affordability(result, s: Scenario) -> dict:
         verdict = (f"❌ Doesn't pencil out — only {n_pass} of {n_total} rules pass. "
                    f"Key issues: {issues}.")
 
+    loan_pct_warn = bool(loan_pct > LOAN_INCOME_WARN_THRESHOLD)
+    burden_pct_warn = bool(burden_pct > BURDEN_INCOME_WARN_THRESHOLD)
+
     return {
         "loan_pct": loan_pct, "burden_pct": burden_pct, "down_pct": down_pct,
+        "loan_pct_warn": loan_pct_warn, "burden_pct_warn": burden_pct_warn,
+        "loan_pct_warn_threshold": LOAN_INCOME_WARN_THRESHOLD,
+        "burden_pct_warn_threshold": BURDEN_INCOME_WARN_THRESHOLD,
         "ltv": ltv, "price_to_income": price_to_income,
         "gross_yield": gross_yield, "net_yield": net_yield,
         "loan_mo": loan_mo, "cost_mo": cost_mo, "rent_mo": rent_mo,

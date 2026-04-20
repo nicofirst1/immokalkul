@@ -141,6 +141,46 @@ def test_funding_gap_flags_under_funding() -> None:
     assert ok is False
 
 
+def test_warn_flags_track_thresholds() -> None:
+    """loan_pct_warn / burden_pct_warn must fire above the 40 % / 45 %
+    bands and stay False below them. These are the Phase-4 [C2]
+    soft-warning thresholds above the existing 30 % rule-of-thumb."""
+    from immokalkul.affordability import (
+        BURDEN_INCOME_WARN_THRESHOLD,
+        LOAN_INCOME_WARN_THRESHOLD,
+    )
+
+    # Comfortable: low loan + modest income → neither warning fires.
+    comfy = make_scenario(
+        price=250_000, initial_capital=100_000,
+        bank_rate=0.034, bank_monthly=720.0,
+        monthly_income=9_000, monthly_rent=1_600,
+    )
+    a = _afford(comfy)
+    assert a["loan_pct"] < LOAN_INCOME_WARN_THRESHOLD
+    assert a["loan_pct_warn"] is False
+    assert a["burden_pct_warn"] is False
+
+    # Stretched: tiny income forces loan/income well past 40 %.
+    stretched = make_scenario(
+        price=800_000, initial_capital=10_000,
+        bank_rate=0.04, bank_monthly=3_900.0,
+        monthly_income=3_000, monthly_rent=1_500,
+    )
+    a = _afford(stretched)
+    assert a["loan_pct"] > LOAN_INCOME_WARN_THRESHOLD
+    assert a["loan_pct_warn"] is True
+    # This scenario's burden also blows past 45 % (live mode, no offsets).
+    s2 = make_scenario(
+        mode="live", price=800_000, initial_capital=10_000,
+        bank_rate=0.04, bank_monthly=3_900.0,
+        monthly_income=3_000, current_rent_warm=0.0,
+    )
+    a2 = _afford(s2)
+    assert a2["burden_pct"] > BURDEN_INCOME_WARN_THRESHOLD
+    assert a2["burden_pct_warn"] is True
+
+
 def test_bonn_sample_passes_most_rules(bonn_scenario) -> None:
     """Regression guard on the bundled sample — must stay largely affordable."""
     a = compute_affordability(run(bonn_scenario), bonn_scenario)

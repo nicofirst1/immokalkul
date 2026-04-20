@@ -887,6 +887,21 @@ def tab_summary(result, s: Scenario, afford: dict):
              "traditional safe range; 8–10× is stretched; 10×+ is "
              "typical only in top cities and implies long horizons.")
 
+    if afford.get("loan_pct_warn"):
+        loan_thr = afford["loan_pct_warn_threshold"]
+        st.warning(
+            f"**Loan / income is {pct(loan_pct, 1)}** — beyond the "
+            f"{pct(loan_thr, 0)} level where German banks typically "
+            "tighten lending standards or decline. Consider a larger "
+            "down payment, a longer term, or a lower price.")
+    if afford.get("burden_pct_warn"):
+        burden_thr = afford["burden_pct_warn_threshold"]
+        st.warning(
+            f"**Net burden / income is {pct(burden_pct, 1)}** — even "
+            f"after rent income and avoided rent, more than {pct(burden_thr, 0)} "
+            "of salary goes to this property. That leaves little room "
+            "for savings, vacancies, or rate resets.")
+
     st.markdown("### Return, leverage, timing")
     b1, b2, b3, b4 = st.columns(4)
     if s.mode == "rent":

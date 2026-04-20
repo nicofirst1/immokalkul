@@ -7,6 +7,16 @@ All notable changes to **immokalkul** are documented here. Format based on
 Minor versions correspond to audit cycles — each audit report and its
 actionable-items list live in [`docs/audits/`](docs/audits/).
 
+## [1.6.1] — 2026-04-20
+
+**Human UX audit v1 — complex item [C2].** Phase-4 lowest-risk start: soft affordability warnings above the strained-zone thresholds.
+
+### Added
+- Soft `st.warning` blocks on the Summary tab when `loan_pct > 40 %` or `burden_pct > 45 %` — a second band above the existing 30 % rule-of-thumb badges
+- `LOAN_INCOME_WARN_THRESHOLD` / `BURDEN_INCOME_WARN_THRESHOLD` constants in `immokalkul/affordability.py` so future tuning lives in one place
+- `loan_pct_warn` / `burden_pct_warn` booleans + thresholds in the affordability dict
+- Unit test `test_warn_flags_track_thresholds` covering both sides of each threshold
+
 ## [1.6.0] — 2026-04-20
 
 **Human UX audit v1 — quick fixes applied.** Addresses 47 labelled items plus 3 iteration follow-ups from a first-person user walkthrough.
