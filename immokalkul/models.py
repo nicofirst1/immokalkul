@@ -58,6 +58,38 @@ class Loan:
                                            # loans clear (uses debt_budget_monthly
                                            # as the ceiling). Only meaningful on
                                            # non-annuity loans.
+    annual_extra_repayment_eur: float = 0.0  # lump-sum Sondertilgung applied at
+                                           # year-end after regular payment.
+                                           # Contract-typical: €5k-€25k/yr.
+                                           # Clamped to remaining balance.
+    sondertilgung_pct_of_original_principal: float = 0.0  # German contract clause
+                                           # "N % Sondertilgungsrecht p.a." — fraction
+                                           # of ORIGINAL principal (not current
+                                           # balance) the borrower may repay extra
+                                           # each year. Typical: 5 % (0.05).
+                                           # Stored as a decimal.
+    fixed_term_years: int = 0              # Zinsbindung length. Purely informational
+                                           # — the engine holds the rate constant
+                                           # through the full horizon (the post-
+                                           # Prolongation rate is a future market
+                                           # rate nobody knows today). Surfaced in
+                                           # the Debt tab so the user sees when the
+                                           # Prolongationsangebot is due.
+
+    def __post_init__(self) -> None:
+        if self.annual_extra_repayment_eur < 0:
+            raise ValueError(
+                f"Loan {self.name!r}: annual_extra_repayment_eur must be "
+                f"≥ 0, got {self.annual_extra_repayment_eur}")
+        if not 0 <= self.sondertilgung_pct_of_original_principal <= 1:
+            raise ValueError(
+                f"Loan {self.name!r}: sondertilgung_pct_of_original_principal "
+                f"must be in [0, 1], got "
+                f"{self.sondertilgung_pct_of_original_principal}")
+        if self.fixed_term_years < 0:
+            raise ValueError(
+                f"Loan {self.name!r}: fixed_term_years must be ≥ 0, got "
+                f"{self.fixed_term_years}")
 
 
 @dataclass

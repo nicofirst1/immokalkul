@@ -102,6 +102,18 @@ def loans_list(draw):
                                             allow_nan=False, allow_infinity=False)),
             is_annuity=draw(st.booleans()),
             is_adaptive=False,
+            # Audit v1 [C3] — optional Sondertilgung + Zinsbindung. Most
+            # draws get 0 (no-op) so the engine's pre-[C3] behaviour is
+            # still heavily exercised; a minority carry non-zero values.
+            annual_extra_repayment_eur=draw(st.one_of(
+                st.just(0.0),
+                st.floats(min_value=0.0, max_value=25_000,
+                          allow_nan=False, allow_infinity=False))),
+            sondertilgung_pct_of_original_principal=draw(st.one_of(
+                st.just(0.0),
+                st.floats(min_value=0.0, max_value=0.10,
+                          allow_nan=False, allow_infinity=False))),
+            fixed_term_years=draw(st.integers(min_value=0, max_value=30)),
         ))
     # At most one adaptive (engine convention); adaptive only on non-annuity.
     adaptive_idx = draw(st.one_of(

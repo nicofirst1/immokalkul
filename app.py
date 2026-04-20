@@ -40,7 +40,7 @@ st.set_page_config(
 DATA_DIR = Path(__file__).parent / "data"
 DEFAULT_SCENARIO = DATA_DIR / "bonn_poppelsdorf.yaml"
 
-APP_VERSION = "1.7.4"
+APP_VERSION = "1.8.0"
 
 
 @st.cache_data(show_spinner=False)
@@ -80,6 +80,73 @@ def wk(base: str) -> str:
 def _bump_widget_generation() -> None:
     st.session_state.widget_generation = (
         st.session_state.get("widget_generation", 0) + 1)
+
+
+def _apply_loan_edits() -> None:
+    """on_change callback for the loans data_editor.
+
+    Reads the edit patch from `session_state[loans_editor_key]` and rebuilds
+    `s.financing.loans` before the script body runs. Without this, st.data_editor
+    batches edits until another widget interaction triggers a rerun — users
+    see a "+1 lag" where the first edit has no visible effect until the
+    second one lands. The callback fires synchronously on every commit so
+    downstream tabs always see the freshly-typed values.
+    """
+    key = wk("loans_editor")
+    state = st.session_state.get(key)
+    if state is None:
+        return
+    # Streamlit's data_editor may expose state as either an EditingState
+    # object (attribute access) or a plain dict (in test contexts).
+    edited_rows = (getattr(state, "edited_rows", None)
+                    if not isinstance(state, dict)
+                    else state.get("edited_rows", {})) or {}
+    added_rows = (getattr(state, "added_rows", None)
+                   if not isinstance(state, dict)
+                   else state.get("added_rows", [])) or []
+    deleted_rows = (getattr(state, "deleted_rows", None)
+                     if not isinstance(state, dict)
+                     else state.get("deleted_rows", [])) or []
+
+    s = st.session_state.scenario
+    new_loans = []
+    for i, l in enumerate(s.financing.loans):
+        if i in deleted_rows:
+            continue
+        o = edited_rows.get(i, {})
+        new_loans.append(Loan(
+            name=str(o.get("Name", l.name)),
+            principal=float(o.get("Principal (€)", l.principal) or 0),
+            interest_rate=float(
+                o.get("Rate (%)", l.interest_rate * 100) or 0) / 100,
+            monthly_payment=float(
+                o.get("Monthly (€)", l.monthly_payment) or 0),
+            is_annuity=bool(o.get("Annuity?", l.is_annuity)),
+            is_adaptive=bool(o.get("Adaptive?", l.is_adaptive)),
+            annual_extra_repayment_eur=float(
+                o.get("Extra €/yr", l.annual_extra_repayment_eur) or 0),
+            sondertilgung_pct_of_original_principal=float(o.get(
+                "S-tilg. % orig.",
+                l.sondertilgung_pct_of_original_principal * 100) or 0) / 100,
+            fixed_term_years=int(o.get("Fixed yr", l.fixed_term_years) or 0),
+        ))
+    for row in added_rows:
+        name = row.get("Name", "")
+        if pd.notna(name) and name:
+            new_loans.append(Loan(
+                name=str(name),
+                principal=float(row.get("Principal (€)", 0) or 0),
+                interest_rate=float(row.get("Rate (%)", 0) or 0) / 100,
+                monthly_payment=float(row.get("Monthly (€)", 0) or 0),
+                is_annuity=bool(row.get("Annuity?", True)),
+                is_adaptive=bool(row.get("Adaptive?", False)),
+                annual_extra_repayment_eur=float(
+                    row.get("Extra €/yr", 0) or 0),
+                sondertilgung_pct_of_original_principal=float(
+                    row.get("S-tilg. % orig.", 0) or 0) / 100,
+                fixed_term_years=int(row.get("Fixed yr", 0) or 0),
+            ))
+    s.financing.loans = new_loans
 
 
 def afa_useful_life_label(year_built: int, useful_life_years: int) -> str:
@@ -469,15 +536,32 @@ def sidebar_inputs():
                 "Monthly (€)": l.monthly_payment,
                 "Annuity?": l.is_annuity,
                 "Adaptive?": l.is_adaptive,
+                "Extra €/yr": l.annual_extra_repayment_eur,
+                "S-tilg. % orig.": l.sondertilgung_pct_of_original_principal * 100,
+                "Fixed yr": l.fixed_term_years,
             } for l in s.financing.loans])
-            edited = st.data_editor(
-                loans_df, num_rows="dynamic", key=wk("loans_editor"),
+            loans_editor_key = wk("loans_editor")
+            # on_change callback forces a rerun on every cell commit AND runs
+            # synchronously before the script body, so downstream tabs see the
+            # fresh loans immediately. Without it, st.data_editor batches
+            # edits until an adjacent interaction triggers a rerun — users
+            # see the "+1 lag" symptom where the first edit has no visible
+            # effect until the second one lands.
+            st.data_editor(
+                loans_df, num_rows="dynamic", key=loans_editor_key,
+                on_change=_apply_loan_edits,
                 column_config={
                     "Principal (€)": st.column_config.NumberColumn(format="%.0f", min_value=0),
                     "Rate (%)": st.column_config.NumberColumn(format="%.3f", step=0.1, min_value=0.0),
                     "Monthly (€)": st.column_config.NumberColumn(format="%.2f", min_value=0),
                     "Annuity?": st.column_config.CheckboxColumn(),
                     "Adaptive?": st.column_config.CheckboxColumn(),
+                    "Extra €/yr": st.column_config.NumberColumn(
+                        format="%.0f", step=500.0, min_value=0.0),
+                    "S-tilg. % orig.": st.column_config.NumberColumn(
+                        format="%.1f", step=0.5, min_value=0.0, max_value=100.0),
+                    "Fixed yr": st.column_config.NumberColumn(
+                        format="%d", step=1, min_value=0, max_value=50),
                 })
             # Column key lives below the table — per-column hover tooltips
             # overflow the sidebar on narrow viewports.
@@ -499,20 +583,25 @@ def sidebar_inputs():
                     "capacity once other loans clear, up to the *Monthly "
                     "loan budget [adaptive]* ceiling above. Typical for "
                     "low-priority family / 0 %-interest loans you want to "
-                    "retire faster.")
-            # Write back
-            new_loans = []
-            for _, row in edited.iterrows():
-                if pd.notna(row["Name"]) and row["Name"]:
-                    new_loans.append(Loan(
-                        name=str(row["Name"]),
-                        principal=float(row["Principal (€)"] or 0),
-                        interest_rate=float(row["Rate (%)"] or 0) / 100,
-                        monthly_payment=float(row["Monthly (€)"] or 0),
-                        is_annuity=bool(row["Annuity?"]),
-                        is_adaptive=bool(row.get("Adaptive?", False)),
-                    ))
-            s.financing.loans = new_loans
+                    "retire faster.\n"
+                    "- **Extra €/yr** — lump-sum **Sondertilgung** applied "
+                    "at year-end after the regular payment. 0 = none. "
+                    "Counts against the affordability ratios because it IS "
+                    "cash leaving your pocket.\n"
+                    "- **S-tilg. % orig.** — contractual *Sondertilgungsrecht* "
+                    "as a percentage of the **original** principal, applied "
+                    "yearly (typical clause: **5 %**). Added on top of "
+                    "*Extra €/yr* if both are set. Clamped to remaining "
+                    "balance.\n"
+                    "- **Fixed yr** — **Zinsbindung** length in years "
+                    "(typical: 5 / 10 / 15 / 20 / 25). **Purely informational** "
+                    "— the engine holds the rate constant past this point "
+                    "because nobody knows the future market rate. Surfaced "
+                    "in the Debt tab so you see when the Prolongation is due.")
+            # Write-back is handled by the on_change callback `_apply_loan_edits`
+            # so edits propagate in the same rerun they trigger. Intentionally
+            # no post-widget for-loop here — adding one would overwrite the
+            # callback's work on re-renders that don't carry edit patches.
 
             # Helper note on bank principal
             from immokalkul.financing import compute_purchase_costs
@@ -1666,6 +1755,29 @@ def tab_debt(result, s: Scenario):
                "clears, its band drops out — the remaining loans take the "
                "freed capacity if any are flagged Adaptive.")
 
+    # Zinsbindung banners — one per loan with a fixed-term set. Surfaces
+    # the Restschuld the user will face at Prolongation and is honest
+    # about the model holding the rate constant past that point (nobody
+    # knows the future market rate).
+    zinsbindung_loans = [l for l in s.financing.loans if l.fixed_term_years > 0]
+    for l in zinsbindung_loans:
+        if l.fixed_term_years >= s.globals.horizon_years:
+            continue  # Zinsbindung outlasts the projection; no Prolongation shown
+        bal_col = f"{l.name}_balance"
+        end_year = l.fixed_term_years
+        # <name>_balance is the OPENING balance of each year; the balance
+        # at the END of year N = opening balance of year N+1 (or 0 if cleared).
+        if end_year + 1 <= len(am):
+            restschuld = float(am[bal_col].iloc[end_year])
+        else:
+            restschuld = 0.0
+        st.info(
+            f"**Zinsbindung for *{l.name}* ends at year {end_year}.** "
+            f"Restschuld at that point: **{eur(restschuld)}**. The model "
+            "holds the rate constant past this point — in reality you'll "
+            "sign a Prolongation at the then-market rate, so budget for "
+            "±1–2 pp if rates rise.")
+
     # Summary table
     st.markdown("### Per-loan summary")
     summary_rows = []
@@ -1673,15 +1785,20 @@ def tab_debt(result, s: Scenario):
         bal_col = f"{l.name}_balance"
         pay_col = f"{l.name}_payment"
         int_col = f"{l.name}_interest"
-        total_paid = float(am[pay_col].sum())
+        extra_col = f"{l.name}_extra_repayment"
+        total_regular = float(am[pay_col].sum())
+        total_extras = float(am[extra_col].sum()) if extra_col in am.columns else 0.0
+        total_paid = total_regular + total_extras
         total_interest = float(am[int_col].sum())
         years = int((am[bal_col] > 0).sum())
         summary_rows.append({
             "Loan": l.name,
             "Principal (€)": eur(l.principal),
             "Rate": pct(l.interest_rate, 2),
+            "Fixed (yr)": str(l.fixed_term_years) if l.fixed_term_years else "—",
             "Years to clear": years if years < s.globals.horizon_years else f"≥{years}",
             "Total payments (€)": eur(total_paid),
+            "of which Sondertilg. (€)": eur(total_extras) if total_extras else "—",
             "Total interest (€)": eur(total_interest),
             "Interest %": pct(total_interest / l.principal if l.principal else 0, 1),
         })
@@ -1693,7 +1810,13 @@ def tab_debt(result, s: Scenario):
                 help="Amount borrowed at closing."),
             "Rate": st.column_config.TextColumn(
                 "Rate",
-                help="Annual interest rate."),
+                help="Annual interest rate (held constant by the engine "
+                     "through the full horizon)."),
+            "Fixed (yr)": st.column_config.TextColumn(
+                "Fixed (yr)",
+                help="Zinsbindung length — years the bank's offer sheet "
+                     "locks the rate. Informational only; the engine does "
+                     "not model a post-Prolongation rate change."),
             "Years to clear": st.column_config.TextColumn(
                 "Years to clear",
                 help="Year in which the balance reaches 0 within the "
@@ -1701,8 +1824,13 @@ def tab_debt(result, s: Scenario):
                      "the end of the projection."),
             "Total payments (€)": st.column_config.TextColumn(
                 "Total payments (€)",
-                help="Principal + interest paid across the horizon "
-                     "(not present-valued)."),
+                help="Regular payments **plus** Sondertilgung across the "
+                     "horizon (not present-valued)."),
+            "of which Sondertilg. (€)": st.column_config.TextColumn(
+                "of which Sondertilg. (€)",
+                help="Cumulative Sondertilgung (lump + % of original "
+                     "principal). Clamped to remaining balance in the "
+                     "final year so the loan doesn't go negative."),
             "Total interest (€)": st.column_config.TextColumn(
                 "Total interest (€)",
                 help="Cumulative interest portion over the horizon — the "
@@ -1718,11 +1846,13 @@ def tab_debt(result, s: Scenario):
         st.dataframe(am.style.format("€{:,.0f}"),
                       width="stretch", height=400)
         st.caption(
-            "**Columns** — `*_balance`: outstanding principal at end of "
-            "year. `*_payment`: principal + interest paid that year. "
-            "`*_interest`: interest portion only. Principal portion = "
-            "`*_payment` − `*_interest`. Totals aggregate across all "
-            "loans.")
+            "**Columns** — `*_balance`: opening outstanding principal of "
+            "each year. `*_payment`: regular annuity / fixed payment that "
+            "year. `*_interest`: interest portion only. Principal portion "
+            "of the regular payment = `*_payment` − `*_interest`. "
+            "`*_extra_repayment`: Sondertilgung applied at year-end on top "
+            "of the regular payment. Totals aggregate across all loans; "
+            "`total_payment` includes extras.")
 
 
 def tab_capex(result, s: Scenario):

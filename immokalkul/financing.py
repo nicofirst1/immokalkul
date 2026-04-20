@@ -124,6 +124,14 @@ def amortization_schedule(financing: Financing, horizon_years: int) -> pd.DataFr
     rows = []
     balances = {l.name: l.principal for l in financing.loans}
     annuities = {l.name: l.monthly_payment * 12 for l in financing.loans}
+    # Year-end Sondertilgung: lump-sum + % of ORIGINAL principal. Applied
+    # after the regular payment and after adaptive reallocation, clamped
+    # to the remaining balance. Both are additional balance reducers —
+    # they never inflate <name>_payment (which stays "regular payment
+    # only", preserving the annuity-constant-payment invariant).
+    extras = {l.name: l.annual_extra_repayment_eur
+                       + l.sondertilgung_pct_of_original_principal * l.principal
+              for l in financing.loans}
     rates = {}
     for l in financing.loans:
         if l.interest_rate < 0:
@@ -179,12 +187,25 @@ def amortization_schedule(financing: Financing, horizon_years: int) -> pd.DataFr
         new_balances = {name: max(0.0, balances[name] + interest[name] - payments[name])
                         for name in balances}
 
+        # Step 5: year-end Sondertilgung. Clamped to remaining balance so
+        # the last year's extra never pushes it below 0. Recorded in a
+        # separate column so <name>_payment stays "regular payment only".
+        applied_extras = {}
+        for name in balances:
+            applied = min(extras[name], new_balances[name])
+            new_balances[name] -= applied
+            applied_extras[name] = applied
+
         # Record this year's row
         for name in balances:
             row[f"{name}_balance"] = balances[name]   # opening balance
             row[f"{name}_interest"] = interest[name]
             row[f"{name}_payment"] = payments[name]
-        row["total_payment"] = sum(payments.values())
+            row[f"{name}_extra_repayment"] = applied_extras[name]
+        # total_payment reflects TOTAL cash outflow for the household —
+        # regular payments plus Sondertilgung. Downstream cashflow reads
+        # this column directly as loan_payment.
+        row["total_payment"] = sum(payments.values()) + sum(applied_extras.values())
         row["total_interest"] = sum(interest.values())
         rows.append(row)
 

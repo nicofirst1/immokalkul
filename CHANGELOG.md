@@ -7,6 +7,32 @@ All notable changes to **immokalkul** are documented here. Format based on
 Minor versions correspond to audit cycles — each audit report and its
 actionable-items list live in [`docs/audits/`](docs/audits/).
 
+## [1.8.0] — 2026-04-20
+
+**Human UX audit v1 — complex item [C3].** Sondertilgung (annual extra repayments) and Zinsbindung (informational fixed-term length) added to every loan tranche. Post-fixed rate switching intentionally dropped — it would require the user to guess a future market rate they don't have, so the Debt tab surfaces the Zinsbindung end date as a caption and holds the rate constant past it.
+
+### Added
+- `Loan.annual_extra_repayment_eur` — lump-sum Sondertilgung (€/yr), applied at year-end after the regular payment and clamped to remaining balance
+- `Loan.sondertilgung_pct_of_original_principal` — German contract clause "N % Sondertilgungsrecht p.a." as a fraction of the **original** principal; adds on top of the lump
+- `Loan.fixed_term_years` — Zinsbindung length. Purely informational; engine holds the rate constant through the full horizon
+- `Loan.__post_init__` validator: negatives / out-of-range pct raise `ValueError`
+- Engine Step 5 in `amortization_schedule` applies extras after balance update; new `<name>_extra_repayment` column
+- Sidebar loans editor grows 3 columns (`Extra €/yr`, `S-tilg. % orig.`, `Fixed yr`) with column-key help text
+- Debt tab: per-loan summary adds `Fixed (yr)` and `of which Sondertilg. (€)` columns; an `st.info` banner per loan with a Zinsbindung set surfaces the Restschuld at Prolongation
+- 7 new unit tests in `tests/test_financing.py` (lump, pct, clamp, total_payment reconciliation, fixed-term-metadata, validator, regression-guard for annuity payment column)
+- Fuzz extension: `loans_list` strategy draws optional Sondertilgung / Zinsbindung values; `test_annuity_balance_is_monotonic` invariant holds by construction (extras only reduce balance)
+
+### Fixed
+- **Loans data editor "+1 lag"**: `st.data_editor` batched edits until another widget interaction triggered a rerun. Users saw the first edit as having no effect until a second edit lands. Replaced the post-widget write-back with an `on_change` callback (`_apply_loan_edits`) that fires synchronously on every cell commit BEFORE the script body, so downstream tabs always see fresh loans
+
+### Changed
+- `total_payment` aggregate column in the amort DataFrame now reflects TOTAL cash outflow (regular payments + Sondertilgung). Cashflow picks this up automatically via the existing `loan_payment` read path
+- `<name>_payment` columns stay "regular payment only" — preserves `test_annuity_payment_is_constant_until_cleared` and the "regular vs. extras" split shown in the Debt tab
+- `APP_VERSION` bumped to 1.8.0 (minor — new engine feature with user-facing columns)
+
+### Intentionally not done
+- Post-fixed-rate stress-test input. Research (Check24 / Interhyp patterns, the WONTFIX'd Streamlit tab-anchor thread, and §7 EStG context) pointed to this being an assumption users genuinely don't have before seeing a bank offer, so asking for it as a required input was adding user work without adding accuracy
+
 ## [1.7.4] — 2026-04-20
 
 **Human UX audit v1 — complex item [C8].** Dedicated Glossary tab with A–Z index and anchored terms.
