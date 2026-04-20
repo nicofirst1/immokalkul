@@ -40,7 +40,7 @@ st.set_page_config(
 DATA_DIR = Path(__file__).parent / "data"
 DEFAULT_SCENARIO = DATA_DIR / "bonn_poppelsdorf.yaml"
 
-APP_VERSION = "1.7.2"
+APP_VERSION = "1.7.3"
 
 
 @st.cache_data(show_spinner=False)
@@ -1897,6 +1897,15 @@ def tab_tax(result, s: Scenario):
         explainer_clean = explainer.replace("|", "\\|")
         md.append(f"| {comp} | {val} | {explainer_clean} |")
     st.markdown("\n".join(md))
+
+    if s.globals.horizon_years > a.useful_life_years:
+        st.info(
+            f"**AfA stops at year {a.useful_life_years}** — the statutory "
+            f"useful life for this build cohort (§ 7 Abs. 4 EStG). From "
+            f"year {a.useful_life_years + 1} onward the depreciation "
+            f"shield is exhausted, so taxable rental income rises and "
+            f"tax owed jumps. This is the correct legal treatment, not a "
+            f"model glitch.")
 
     st.markdown("### Annual tax computation")
     tx = result.tax

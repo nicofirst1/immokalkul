@@ -199,6 +199,7 @@ def annual_tax_schedule_v2(mode: Mode,
         - (rent.monthly_rent + rent.monthly_parking) * rent.expected_vacancy_months_per_year
     # Note: vacancy-adjusted income for tax = effective rent received
 
+    useful_life = afa_basis.useful_life_years
     for yr in range(1, horizon + 1):
         # Rent income (escalated)
         rent_income = base_rent_year * (1 + rent.annual_rent_escalation) ** (yr - 1)
@@ -207,8 +208,10 @@ def annual_tax_schedule_v2(mode: Mode,
         # Operating costs deduction (escalated by cost inflation)
         deduct_costs = deductible_costs_year_one_eur \
             * (1 + globals_.cost_inflation_annual) ** (yr - 1)
-        # AfA constant
-        deduct_afa = annual_afa
+        # AfA stops at the statutory useful life (§ 7 Abs. 4 EStG):
+        # 40 yr for pre-1925 Altbau, 50 yr for 1925-2022, 33⅓ yr for
+        # post-2023. After that the depreciation shield is exhausted.
+        deduct_afa = annual_afa if yr <= useful_life else 0.0
         # Capex deduction this year (inflation-adjusted)
         capex_this_year = capex_by_year.get(yr, 0)
         deduct_capex = capex_this_year * (1 + globals_.cost_inflation_annual) ** (yr - 1)

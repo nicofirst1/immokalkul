@@ -57,8 +57,12 @@ def test_bonn_reference_cumulative(bonn_result) -> None:
     # Bonn sample's `expected_vacancy_months_per_year` changed 0.25 → 2
     # (audit v1 Phase-2b: realistic conservative default for German urban
     # rentals). 50 years of higher vacancy reduces rent income materially;
-    # pin dropped from €518,104.
-    assert final == pytest.approx(316_213, abs=1)
+    # pin dropped from €518,104 → €316,213.
+    # AfA now stops at year 40 for pre-1925 Altbau (§ 7 Abs. 4 EStG, audit
+    # v1 [C5]). Bonn is year_built=1904, so years 41-50 lose ~€7.8k/yr of
+    # AfA deduction; at marginal rate 38 % that's ~€3k/yr of extra tax for
+    # 10 years (~€30k cumulative). Pin dropped €316,213 → €286,585.
+    assert final == pytest.approx(286_585, abs=1)
 
 
 def test_horizon_respected(bonn_scenario) -> None:
@@ -87,6 +91,36 @@ def test_bonn_is_pre_1925_afa_rate(bonn_scenario) -> None:
     r = run(bonn_scenario)
     assert r.afa_basis.afa_rate == pytest.approx(0.025)
     assert r.afa_basis.useful_life_years == 40
+
+
+def test_afa_capped_at_useful_life(bonn_scenario) -> None:
+    """Audit v1 [C5]: AfA must stop at the statutory useful life
+    (§ 7 Abs. 4 EStG). Bonn is pre-1925 → 40-year life; horizon 50 →
+    years 41-50 must carry deduct_afa=0, while years 1-40 carry the
+    full annual_afa."""
+    bonn_scenario.mode = "rent"
+    bonn_scenario.globals.horizon_years = 50
+    r = run(bonn_scenario)
+    tax = r.tax
+    afa_annual = r.afa_basis.annual_afa
+    assert r.afa_basis.useful_life_years == 40
+
+    # Years 1-40: full AfA deduction each year.
+    assert tax["deduct_afa"].iloc[:40].gt(0).all(), (
+        "AfA should be non-zero during useful-life window")
+    assert tax["deduct_afa"].iloc[0] == pytest.approx(afa_annual, rel=1e-6)
+
+    # Years 41-50: AfA exhausted.
+    assert (tax["deduct_afa"].iloc[40:] == 0).all(), (
+        "AfA must be zero past the 40-year useful life")
+
+
+def test_afa_not_capped_when_horizon_fits(bonn_scenario) -> None:
+    """Horizon ≤ useful_life: AfA runs through every year, nothing capped."""
+    bonn_scenario.mode = "rent"
+    bonn_scenario.globals.horizon_years = 30  # well under Bonn's 40-yr life
+    r = run(bonn_scenario)
+    assert (r.tax["deduct_afa"] > 0).all()
 
 
 def test_rent_mode_avoided_rent_is_zero(bonn_scenario) -> None:

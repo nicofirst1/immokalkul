@@ -7,6 +7,21 @@ All notable changes to **immokalkul** are documented here. Format based on
 Minor versions correspond to audit cycles — each audit report and its
 actionable-items list live in [`docs/audits/`](docs/audits/).
 
+## [1.7.3] — 2026-04-20
+
+**Human UX audit v1 — complex item [C5].** AfA now stops at the statutory useful life instead of running through the full horizon.
+
+### Fixed
+- `tax.py:annual_tax_schedule_v2` capped AfA at `useful_life_years` (§ 7 Abs. 4 EStG): 40 yr for pre-1925 Altbau, 50 yr for 1925–2022, 33⅓ yr for post-2023. Previously the engine over-deducted AfA through the full horizon — e.g. for Bonn (1904, horizon 50) that was 10 years of phantom depreciation shield worth ~€30k of missed tax.
+
+### Added
+- Tax tab `st.info` banner when `horizon_years > useful_life_years`, naming the exhaustion year and the statute
+- `test_afa_capped_at_useful_life` + `test_afa_not_capped_when_horizon_fits` in `tests/test_engine.py`
+
+### Changed
+- `test_bonn_reference_cumulative` pin dropped €316,213 → €286,585 (documented in the pin's docstring)
+- `APP_VERSION` bumped to 1.7.3
+
 ## [1.7.2] — 2026-04-20
 
 **Human UX audit v1 — complex item [C10], layer 3.** Streamlit UI smoke tests via `streamlit.testing.v1.AppTest`.
