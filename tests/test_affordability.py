@@ -181,6 +181,41 @@ def test_warn_flags_track_thresholds() -> None:
     assert a2["burden_pct_warn"] is True
 
 
+def test_total_housing_ceiling_toggles_at_boundary() -> None:
+    """The [C9] housing-ceiling check: housing_budget_exceeded must be
+    False when ceiling is 0 (unset), False when housing fits, and True
+    when it overshoots. Not part of the pass/fail checks list."""
+    s = make_scenario(
+        price=400_000, initial_capital=100_000,
+        bank_rate=0.034, bank_monthly=1_350.0,
+        monthly_income=6_000,
+    )
+    # Unset ceiling → no check fires regardless of actual housing cost.
+    s.financing.monthly_total_housing_budget_eur = 0.0
+    a = _afford(s)
+    assert a["housing_budget_set"] is False
+    assert a["housing_budget_exceeded"] is False
+    # The new keys must not leak into the pass/fail `checks` list.
+    headlines = [c[3] for c in a["checks"]]
+    assert not any("housing" in h.lower() and "ceiling" in h.lower()
+                   for h in headlines)
+
+    actual_housing = a["total_housing_mo"]
+    assert actual_housing > 0
+
+    # Ceiling comfortably above actual → check set but not exceeded.
+    s.financing.monthly_total_housing_budget_eur = actual_housing + 500
+    a = _afford(s)
+    assert a["housing_budget_set"] is True
+    assert a["housing_budget_exceeded"] is False
+
+    # Ceiling below actual → exceeded.
+    s.financing.monthly_total_housing_budget_eur = actual_housing - 500
+    a = _afford(s)
+    assert a["housing_budget_set"] is True
+    assert a["housing_budget_exceeded"] is True
+
+
 def test_bonn_sample_passes_most_rules(bonn_scenario) -> None:
     """Regression guard on the bundled sample — must stay largely affordable."""
     a = compute_affordability(run(bonn_scenario), bonn_scenario)

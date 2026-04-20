@@ -155,11 +155,24 @@ def compute_affordability(result, s: Scenario) -> dict:
     loan_pct_warn = bool(loan_pct > LOAN_INCOME_WARN_THRESHOLD)
     burden_pct_warn = bool(burden_pct > BURDEN_INCOME_WARN_THRESHOLD)
 
+    # Total monthly housing spend vs. the optional user-set ceiling.
+    # Not part of the pass/fail `checks` list — it's an additive soft
+    # warning (mirrors the [C2] pattern). 0 = ceiling unset → no check.
+    total_housing_mo = cost_mo
+    housing_budget = s.financing.monthly_total_housing_budget_eur or 0.0
+    housing_budget_set = bool(housing_budget > 0)
+    housing_budget_exceeded = bool(housing_budget_set
+                                    and total_housing_mo > housing_budget)
+
     return {
         "loan_pct": loan_pct, "burden_pct": burden_pct, "down_pct": down_pct,
         "loan_pct_warn": loan_pct_warn, "burden_pct_warn": burden_pct_warn,
         "loan_pct_warn_threshold": LOAN_INCOME_WARN_THRESHOLD,
         "burden_pct_warn_threshold": BURDEN_INCOME_WARN_THRESHOLD,
+        "total_housing_mo": total_housing_mo,
+        "housing_budget": housing_budget,
+        "housing_budget_set": housing_budget_set,
+        "housing_budget_exceeded": housing_budget_exceeded,
         "ltv": ltv, "price_to_income": price_to_income,
         "gross_yield": gross_yield, "net_yield": net_yield,
         "loan_mo": loan_mo, "cost_mo": cost_mo, "rent_mo": rent_mo,

@@ -364,6 +364,21 @@ def sidebar_inputs():
                          "of peers, its payment is lifted up to this "
                          "ceiling.")
 
+            s.financing.monthly_total_housing_budget_eur = st.number_input(
+                "Monthly housing ceiling [total] (€/mo) — 0 = unset",
+                value=float(s.financing.monthly_total_housing_budget_eur),
+                step=50.0, format="%.0f", min_value=0.0,
+                help="**What does this cap?** Total monthly housing spend "
+                     "— loan payments **plus** operating costs (Hausgeld, "
+                     "insurance, Grundsteuer, maintenance). \n\n"
+                     "**How is this different from the `[adaptive]` "
+                     "budget above?** The `[adaptive]` budget is an "
+                     "*engine knob* — it drives how adaptive loans "
+                     "scale and covers **loans only**. This ceiling is "
+                     "an *affordability check* — it triggers a warning "
+                     "on Summary when total housing spend exceeds it. "
+                     "Set to **0** to disable the check.")
+
             st.markdown("**Loans** — one row per tranche. Add / remove rows freely.")
             if st.button("↺ Reset loans to scenario defaults", key="reset_loans"):
                 s.financing.loans = deepcopy(
@@ -901,6 +916,24 @@ def tab_summary(result, s: Scenario, afford: dict):
             f"after rent income and avoided rent, more than {pct(burden_thr, 0)} "
             "of salary goes to this property. That leaves little room "
             "for savings, vacancies, or rate resets.")
+    if afford.get("housing_budget_set"):
+        housing_mo = afford["total_housing_mo"]
+        housing_cap = afford["housing_budget"]
+        if afford.get("housing_budget_exceeded"):
+            overage = housing_mo - housing_cap
+            st.warning(
+                f"**Total housing is {eur(housing_mo, 0)} / mo — "
+                f"{eur(overage, 0)} over your {eur(housing_cap, 0)} "
+                "ceiling.** That's loan payments plus operating costs "
+                "(Hausgeld, insurance, Grundsteuer, maintenance). Either "
+                "raise the ceiling, trim the scenario, or accept the "
+                "overshoot knowingly.")
+        else:
+            headroom = housing_cap - housing_mo
+            st.caption(
+                f"Total housing: **{eur(housing_mo, 0)} / mo** · "
+                f"ceiling {eur(housing_cap, 0)} · "
+                f"headroom {eur(headroom, 0)}.")
 
     st.markdown("### Return, leverage, timing")
     b1, b2, b3, b4 = st.columns(4)

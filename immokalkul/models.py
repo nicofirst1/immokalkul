@@ -70,6 +70,13 @@ class Financing:
     debt_budget_monthly: float = 1745.0    # ceiling for total monthly debt
                                            # service; only used when at least one
                                            # loan has is_adaptive=True
+    monthly_total_housing_budget_eur: float = 0.0   # optional ceiling on total
+                                           # monthly housing spend (loan + op
+                                           # costs — Hausgeld, insurance,
+                                           # Grundsteuer, maintenance). Pure
+                                           # affordability check — does NOT
+                                           # drive the engine. 0 = unset / no
+                                           # check.
 
 
 @dataclass

@@ -7,6 +7,18 @@ All notable changes to **immokalkul** are documented here. Format based on
 Minor versions correspond to audit cycles — each audit report and its
 actionable-items list live in [`docs/audits/`](docs/audits/).
 
+## [1.6.2] — 2026-04-20
+
+**Human UX audit v1 — complex item [C9].** Adds an optional total monthly housing ceiling as a second, distinct affordability cap — not an engine knob.
+
+### Added
+- `Financing.monthly_total_housing_budget_eur` (default `0.0` = unset) — ceiling on loan + operating costs combined
+- Always-visible sidebar input under Financing; tooltip explicitly contrasts it with the existing `[adaptive]` loan budget
+- Summary-tab warning when total housing exceeds the ceiling; grey caption with headroom when within budget
+- `total_housing_mo`, `housing_budget`, `housing_budget_set`, `housing_budget_exceeded` in the affordability dict
+- YAML load/save round-trip support — existing YAMLs stay backward-compatible via `.get(..., 0.0)`
+- Unit test covering unset / within-budget / exceeded boundaries
+
 ## [1.6.1] — 2026-04-20
 
 **Human UX audit v1 — complex item [C2].** Phase-4 lowest-risk start: soft affordability warnings above the strained-zone thresholds.
