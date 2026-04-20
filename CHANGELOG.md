@@ -7,6 +7,34 @@ All notable changes to **immokalkul** are documented here. Format based on
 Minor versions correspond to audit cycles — each audit report and its
 actionable-items list live in [`docs/audits/`](docs/audits/).
 
+## [1.6.0] — 2026-04-20
+
+**Human UX audit v1 — quick fixes applied.** Addresses 47 labelled items plus 3 iteration follow-ups from a first-person user walkthrough.
+
+### Added
+- App version + open-source GitHub link in the sidebar footer and page footer
+- Question-opening tooltips on Loan/income, Net burden/income, Price/annual income, Net out of pocket, cumulative-wealth and capex tiles
+- Cost-line notes for Building insurance, Liability insurance and Vermieter-Rechtsschutz; long notes collapse to a preview with a disclosure arrow
+- Dotted "Tax owed @ N%" line on the annual-tax chart so the marginal-rate slider visibly moves the plot
+- `Scenario detail` header + bordered-card layout on the Summary tail
+- Hausgeld operating-vs-reserve explainer on the Operating costs tab; WEG defined inline everywhere it appears
+- Clickable links for ImmoScout24 / Mietspiegel / ECB price-stability page
+
+### Changed
+- `RentParameters.expected_vacancy_months_per_year` default 0.25 → 2.0 (realistic conservative German baseline); all four sample scenarios updated accordingly
+- Vacancy slider is integer months 0–6 (was 0.0–3.0 float)
+- "Adaptive debt ceiling" renamed to "Monthly loan budget [adaptive] (€/mo, all loans)"; bracket convention for technical flags
+- Loan examples diversified — Bonn sample renames LBS/Mamma → "Bausparer (LBS)" / "Family loan"; Munich Neubau adds a KfW 124 subsidised tranche
+- Operating-costs tab reordered: pie chart + total now appear above the full line-by-line table
+- Cashflow / Summary tables render as Styler-bolded totals with red/green sign-based colouring (Tax, Net property, Cumulative react to value sign)
+- Capex tab: chart titles moved out of Plotly into section headers, bumped font size, rounded hover prices, capex-is-mode-independent caption
+- AfA basis and Operating costs rendered as markdown tables so long explanations wrap freely instead of being truncated
+
+### Fixed
+- `year-1 monthly cash flow` Styler was colouring the wrong column positionally; now keyed by column name
+- `-€0` rent-income row in live mode no longer renders as a green inflow
+- Bonn reference cumulative pin updated (€518,104 → €316,213 at 50 yr) to reflect the new vacancy baseline
+
 ## [1.5.0] — 2026-04-20
 
 **Finance audit v1 applied.** Audit artifacts: [`docs/audits/finance/v1/`](docs/audits/finance/v1/).

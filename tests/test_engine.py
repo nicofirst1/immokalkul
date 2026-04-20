@@ -54,7 +54,11 @@ def test_bonn_reference_cumulative(bonn_result) -> None:
       446k × 0.20 % proxy, but the deduction shrinks too — small net.
     """
     final = float(bonn_result.cashflow["cumulative"].iloc[-1])
-    assert final == pytest.approx(518_104, abs=1)
+    # Bonn sample's `expected_vacancy_months_per_year` changed 0.25 → 2
+    # (audit v1 Phase-2b: realistic conservative default for German urban
+    # rentals). 50 years of higher vacancy reduces rent income materially;
+    # pin dropped from €518,104.
+    assert final == pytest.approx(316_213, abs=1)
 
 
 def test_horizon_respected(bonn_scenario) -> None:

@@ -85,7 +85,12 @@ def make_scenario(
             debt_budget_monthly=2_000,
         ),
         costs=CostInputs(),
-        rent=RentParameters(monthly_rent=monthly_rent),
+        rent=RentParameters(
+            monthly_rent=monthly_rent,
+            # Pin vacancy so affordability tests stay stable even if the
+            # model default shifts (it did in audit v1 Phase-2b: 0.25 → 2).
+            expected_vacancy_months_per_year=0.25,
+        ),
         live=LiveParameters(current_monthly_rent_warm_eur=current_rent_warm),
         globals=GlobalParameters(
             monthly_household_income=monthly_income,

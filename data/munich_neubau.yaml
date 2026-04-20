@@ -29,10 +29,16 @@ financing:
   initial_capital: 200000
   debt_budget_monthly: 2800
   loans:
-    - name: Bank
-      principal: 610000
+    - name: Bank Annuität
+      principal: 510000
       interest_rate: 0.038
-      monthly_payment: 2793.33     # 610000 × (0.038 + 0.017) / 12
+      monthly_payment: 2337.50     # 510000 × (0.038 + 0.017) / 12
+      is_annuity: true
+      is_adaptive: false
+    - name: KfW 124
+      principal: 100000
+      interest_rate: 0.029          # subsidized KfW-Wohneigentum rate
+      monthly_payment: 408.33       # 100000 × (0.029 + 0.020) / 12
       is_annuity: true
       is_adaptive: false
 
@@ -50,7 +56,7 @@ rent:
   monthly_rent: 1950
   monthly_parking: 100
   annual_rent_escalation: 0.025
-  expected_vacancy_months_per_year: 0.15
+  expected_vacancy_months_per_year: 2
   landlord_legal_insurance_annual: 300
   has_property_manager: false
   property_manager_pct_of_rent: 0.06

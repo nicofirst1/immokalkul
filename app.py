@@ -40,6 +40,9 @@ st.set_page_config(
 DATA_DIR = Path(__file__).parent / "data"
 DEFAULT_SCENARIO = DATA_DIR / "bonn_poppelsdorf.yaml"
 
+APP_VERSION = "1.6.0"
+REPO_URL = "https://github.com/nicofirst1/immokalkul"
+
 
 @st.cache_data(show_spinner=False)
 def _scenario_label(yaml_path: str) -> str:
@@ -230,7 +233,10 @@ def sidebar_inputs():
                           horizontal=True,
                           format_func=lambda m: "Live in it" if m == "live" else "Rent it out",
                           help="Live in it: you occupy it (your costs only). "
-                               "Rent it out: buy-to-let (rental income, taxes, vacancy).")
+                               "Rent it out: **buy-to-let** — you buy the "
+                               "property and rent it to a tenant "
+                               "(Vermietung / Kapitalanlage). Rental income, "
+                               "taxes and vacancy are modelled.")
 
         # --- Property ---
         with st.expander("🏘 Property", expanded=False):
@@ -249,7 +255,11 @@ def sidebar_inputs():
                 s.property.plot_size_m2 = st.number_input(
                     "Plot size (m²)", value=float(s.property.plot_size_m2),
                     step=1.0, format="%.2f",
-                    help="For an apartment, your share of the WEG plot. For a house, full plot.")
+                    help="**WEG** = *Wohnungseigentümergemeinschaft*, the "
+                         "owners' association every Eigentumswohnung belongs "
+                         "to. For an apartment you enter your pro-rata share "
+                         "of the shared plot (shown on the Teilungserklärung). "
+                         "For a house, enter the full plot.")
             with c2:
                 s.property.property_type = st.selectbox(
                     "Type", ["apartment", "house"],
@@ -291,12 +301,15 @@ def sidebar_inputs():
                     "Bodenrichtwert (€/m²)",
                     value=float(s.property.bodenrichtwert_eur_per_m2 or 0),
                     step=10.0, format="%.0f",
-                    help="Land value per m². Drives the AfA building/land "
-                         "split AND the Grundsteuer base (post-2025 "
-                         "Bundesmodell). Lookup: BORIS NRW for NRW, BORIS.NI "
-                         "for Lower Saxony, BayernAtlas for Bavaria, etc. — "
-                         "every Bundesland runs its own portal. Leave 0 to "
-                         "use property-type defaults.") or None
+                    help="**Official land reference value (€/m²)** published "
+                         "by the municipal Gutachterausschuss and refreshed "
+                         "every 1–2 years. Used here to split purchase price "
+                         "into land (not depreciable) and building "
+                         "(AfA-eligible); also drives the Grundsteuer base "
+                         "under the post-2025 Bundesmodell. Lookup: BORIS NRW "
+                         "for NRW, BORIS.NI for Lower Saxony, BayernAtlas for "
+                         "Bavaria, etc. — every Bundesland runs its own "
+                         "portal. Leave 0 to use property-type defaults.") or None
                 s.property.is_denkmal = st.checkbox(
                     "Listed building (Denkmal)", s.property.is_denkmal,
                     help="**Flag only — not yet consumed by the engine.** "
@@ -311,13 +324,18 @@ def sidebar_inputs():
                               expanded=False):
                 st.markdown(
                     "**Initial capital** is *your own money* at closing — "
-                    "savings, a gift, a Bauspar payout. No repayment, no "
+                    "savings, a gift, a Bauspar payout. *Closing* = the "
+                    "notary signing day (**Beurkundungstermin**) when the "
+                    "contract is executed and funds move. No repayment, no "
                     "interest.\n\n"
                     "**Loans** are money a third party fronts; you pay them "
                     "back over time.\n\n"
-                    "**Closing identity:** `initial_capital + Σ annuity loans "
-                    "= price + fees`. The 'Suggested Bank principal' hint "
-                    "below is exactly that residual.\n\n"
+                    "**Closing identity:** \n"
+                    "`price + fees = your own capital + Σ loan principals`. \n"
+                    "Whatever is left once your own capital and the other "
+                    "loans are subtracted from *price + fees* is the "
+                    "residual the bank loan has to cover — that's the "
+                    "*Suggested Bank principal* hint below.\n\n"
                     "**Family / Bauspar loans.** If a family loan's cash is "
                     "already inside *Initial capital* at closing, add the "
                     "loan as a **non-annuity** row below to track the "
@@ -327,18 +345,23 @@ def sidebar_inputs():
             s.financing.initial_capital = st.number_input(
                 "Initial capital deployed (€)",
                 value=float(s.financing.initial_capital), step=5000.0, format="%.0f",
-                help="Your own money at closing — savings, gifts, Bauspar "
+                help="Your own money at **closing** (notary signing / "
+                     "Beurkundungstermin) — savings, gifts, Bauspar "
                      "payouts. No repayment. Contrast with Loans (below) = "
                      "third-party money you repay over time.")
 
             any_adaptive = any(l.is_adaptive for l in s.financing.loans)
             if any_adaptive:
                 s.financing.debt_budget_monthly = st.number_input(
-                    "Adaptive debt ceiling (€/mo, total across loans)",
+                    "Monthly loan budget [adaptive] (€/mo, all loans)",
                     value=float(s.financing.debt_budget_monthly),
                     step=50.0, format="%.0f",
-                    help="When any loan is flagged Adaptive, the engine "
-                         "increases its annuity to use up to this monthly "
+                    help="**What does this number constrain?** The total "
+                         "monthly payment across all loans flagged "
+                         "`[adaptive]`. Covers loan principal + interest "
+                         "only — NOT Hausgeld, insurance, property tax or "
+                         "maintenance. When an `[adaptive]` loan is free "
+                         "of peers, its payment is lifted up to this "
                          "ceiling.")
 
             st.markdown("**Loans** — one row per tranche. Add / remove rows freely.")
@@ -380,9 +403,10 @@ def sidebar_inputs():
                     "grows). Uncheck for fixed-payment loans like LBS "
                     "Bausparverträge or family loans.\n"
                     "- **Adaptive?** — check to absorb freed-up debt "
-                    "capacity once other loans clear, up to the Total "
-                    "monthly debt budget above. Typical for low-priority "
-                    "family / 0 %-interest loans you want to retire faster.")
+                    "capacity once other loans clear, up to the *Monthly "
+                    "loan budget [adaptive]* ceiling above. Typical for "
+                    "low-priority family / 0 %-interest loans you want to "
+                    "retire faster.")
             # Write back
             new_loans = []
             for _, row in edited.iterrows():
@@ -410,8 +434,12 @@ def sidebar_inputs():
         # --- Rent params ---
         with st.expander("🏘 Rent parameters", expanded=False):
             st.caption("These fields are **only used in rent mode** "
-                       "(buy-to-let). Live mode ignores them. Safe to leave at "
-                       "defaults if you only care about living in the place.")
+                       "(buy-to-let — you let the property to a tenant). "
+                       "Live mode ignores them. Safe to leave at defaults if "
+                       "you only care about living in the place.")
+            st.caption("📍 Look up realistic rents: "
+                       "[ImmoScout24](https://www.immobilienscout24.de/) · "
+                       "[mietspiegeltabelle.de](https://www.mietspiegeltabelle.de/)")
             s.rent.monthly_rent = st.number_input(
                 "Monthly rent (Kaltmiete, €)",
                 value=float(s.rent.monthly_rent), step=50.0, format="%.0f",
@@ -435,11 +463,13 @@ def sidebar_inputs():
                     "Kappungsgrenze (§ 558 BGB) for regulated markets. "
                     "Honour the cap manually if your unit qualifies for "
                     "Mietpreisbremse.")
-            s.rent.expected_vacancy_months_per_year = st.slider(
-                "Vacancy (months/year)", 0.0, 3.0,
-                value=float(s.rent.expected_vacancy_months_per_year), step=0.05,
-                help="Months per year the flat is empty between tenants. "
-                     "0.15 = hot city, 1.0+ = rural.")
+            s.rent.expected_vacancy_months_per_year = float(st.slider(
+                "Vacancy (months/year)", 0, 6,
+                value=int(round(float(s.rent.expected_vacancy_months_per_year))),
+                step=1,
+                help="Whole months per year the flat is empty between "
+                     "tenants. 0–1 = hot city, 2–3 = average, 4+ implies "
+                     "renovation gaps or persistent vacancy."))
             s.rent.has_property_manager = st.checkbox(
                 "Use property manager?", s.rent.has_property_manager,
                 help="Check if you'll outsource tenant handling / rent "
@@ -548,15 +578,22 @@ def sidebar_inputs():
             g.monthly_household_income = st.number_input(
                 "Monthly household net income (€)",
                 value=float(g.monthly_household_income), step=100.0, format="%.0f",
-                help="Total household take-home pay, Netto. Used only to "
-                     "compute the 'burden-on-salary' metric (30%-rule check). "
-                     "Does not affect the cashflow projection.")
+                help="**How much does this income figure actually drive?** "
+                     "It feeds the **affordability ratios** only "
+                     "(loan/income, net burden/income, price/annual "
+                     "income). It is *not* added to any cashflow total — "
+                     "so this is the 'can you afford this?' input, not a "
+                     "'how rich will you be?' input.")
             g.additional_monthly_savings = st.number_input(
                 "Other monthly savings (€)",
                 value=float(g.additional_monthly_savings), step=50.0, format="%.0f",
-                help="Savings you set aside that are NOT related to the "
-                     "property. Used for the cumulative-wealth line so the "
-                     "chart shows property vs total household wealth.")
+                help="**Why is this separate from the property cash "
+                     "flow?** Because it represents savings set aside "
+                     "independently of the property — it feeds the "
+                     "cumulative-wealth line (property vs total household "
+                     "wealth) but does *not* affect the affordability "
+                     "ratios. Think of it as the 'what if I also save on "
+                     "the side?' input.")
             g.cost_inflation_annual = st.slider(
                 "Cost inflation (annual)", 0.0, 6.0,
                 value=float(g.cost_inflation_annual) * 100,
@@ -622,6 +659,12 @@ def sidebar_inputs():
                 s.auto_schedule_capex,
                 help="Uses component lifecycle table to project replacements based on year built.")
 
+        # --- Sidebar footer: open-source + version ---
+        st.markdown("---")
+        st.caption(
+            f"🔓 **Open source** — [nicofirst1/immokalkul]({REPO_URL}) "
+            f"· v{APP_VERSION}")
+
 
 # -----------------------------------------------------------------------------
 # Header — affordability KPIs
@@ -652,9 +695,12 @@ def render_header(result_current, result_other, s: Scenario, afford: dict):
         f"{s.globals.horizon_years}-yr cumulative wealth",
         eur(final),
         delta_color="normal" if final > 0 else "inverse",
-        help=(f"Net {s.globals.horizon_years}-year change in wealth from "
-              "owning this property. Positive = pays back; negative = costs "
-              "more than it earns."))
+        help=(f"**Does this property pay back over {s.globals.horizon_years} "
+              f"years?** Net {s.globals.horizon_years}-year change in "
+              "wealth from owning it. Positive = pays back; negative = "
+              "costs more than it earns. *The horizon is configurable "
+              "— set it in Global assumptions in the sidebar (range "
+              "10–60 years, default 50).*"))
     level_label = {"ok": "Within rules", "warn": "Mostly within rules",
                    "fail": "Stretching the rules"}[afford["level"]]
     cols[3].metric(
@@ -730,9 +776,13 @@ def tab_summary(result, s: Scenario, afford: dict):
         delta=f"{pct(net_mo / income_mo, 1)} of income" if income_mo else None,
         delta_color=("inverse" if net_mo > 0 and net_mo / income_mo > 0.30
                      else "normal"),
-        help="What actually leaves your wallet each month on average "
-             "during year 1 = ownership cost − offsets. Negative means "
-             "the property pays for itself.")
+        help="**What actually leaves your wallet each month in year 1?** "
+             "Ownership cost (loan + operating costs + tax owed) minus "
+             "offsets (rent income, avoided rent, tax refund). Negative "
+             "means the property pays for itself. **What's NOT in this "
+             "number:** the rent you still pay as a tenant (in rent "
+             "mode) — that only shows up in the *Net burden / income* "
+             "affordability ratio below.")
 
     with st.expander("📋 Line-by-line monthly breakdown"):
         rows = [
@@ -747,18 +797,27 @@ def tab_summary(result, s: Scenario, afford: dict):
             rows.append(("Rent income (net of vacancy)", rent_income_mo, "in"))
         if avoided_mo > 0:
             rows.append(("Avoided rent (imputed)", avoided_mo, "in"))
-        rows.append(("**Net out of pocket**", net_mo, "net"))
+        rows.append(("Net out of pocket", net_mo, "net"))
 
         df_mo = pd.DataFrame([
             {"Item": name,
-             "€ / month": eur(amt, 0) if direction != "out"
-                          else "− " + eur(amt, 0) if amt != 0 else "—",
+             "€ / month": ("− " + eur(amt, 0)) if direction == "out" and amt != 0
+                          else eur(amt, 0),
              "Effect": "income" if direction == "in"
                        else "outflow" if direction == "out"
                        else "balance"}
             for name, amt, direction in rows
         ])
-        st.dataframe(df_mo, hide_index=True, width="stretch")
+
+        def _style_monthly_row(row):
+            if row["Effect"] == "outflow":
+                return ["color: #c0392b"] * len(row)      # red
+            if row["Effect"] == "income":
+                return ["color: #27ae60"] * len(row)      # green
+            return ["font-weight: bold; border-top: 1px solid #888"] * len(row)
+
+        styler = df_mo.style.apply(_style_monthly_row, axis=1).hide(axis="index")
+        st.dataframe(styler, width="stretch")
 
     # ---------- In-context on-ramp: collapsed walkthrough ----------
     with st.expander("🚀 New here? 2-minute walkthrough", expanded=False):
@@ -789,15 +848,25 @@ def tab_summary(result, s: Scenario, afford: dict):
         pct(loan_pct, 1),
         delta=("within 30%" if loan_pct <= 0.30 else f"+{pct(loan_pct - 0.30, 1)} over"),
         delta_color="normal" if loan_pct <= 0.30 else "inverse",
-        help="Monthly debt service as a share of monthly net income. "
-             "German banks use 30% as a rule of thumb for the loan alone.")
+        help="**How strained is your salary by loan repayments alone?** "
+             "Monthly loan payments ÷ net monthly income. Gross number, "
+             "no offsets. German banks typically want this under 30–35 %.")
     a2.metric(
         "Net burden / income",
         pct(burden_pct, 1),
         delta=("within 30%" if burden_pct <= 0.30 else f"+{pct(burden_pct - 0.30, 1)} over"),
         delta_color="normal" if burden_pct <= 0.30 else "inverse",
-        help="Loan + operating costs − rent income, as a share of income. "
-             "The total monthly drain on your salary.")
+        help="**And how strained once operating costs and offsets are "
+             "counted?** \n\n"
+             "`(loan + operating costs − rent income − avoided rent) ÷ "
+             "income` — the true monthly drain on your salary after "
+             "everything the property gives back.\n\n"
+             "**Why can this be *smaller* than Loan / income?** Because "
+             "the offsets *subtract*. In rent mode the rental income can "
+             "more than cover operating costs, so burden < loan. In live "
+             "mode the avoided rent (warm rent you'd otherwise pay — set "
+             "it in Live parameters) offsets part of the loan. If there "
+             "are no offsets, burden ≥ loan.")
     a3.metric(
         "Down payment / price",
         pct(down_pct, 1),
@@ -813,9 +882,10 @@ def tab_summary(result, s: Scenario, afford: dict):
                "stretched" if price_to_income <= 10 else "very stretched"),
         delta_color=("normal" if price_to_income <= 8 else
                      "off" if price_to_income <= 10 else "inverse"),
-        help="Purchase price divided by annual household net income. "
-             "5-8× is the traditional safe range; 8-10× is stretched; "
-             "10×+ is typical only in top cities and implies long horizons.")
+        help="**How many years of net income does this property cost?** "
+             "Purchase price ÷ annual household net income. 5–8× is the "
+             "traditional safe range; 8–10× is stretched; 10×+ is "
+             "typical only in top cities and implies long horizons.")
 
     st.markdown("### Return, leverage, timing")
     b1, b2, b3, b4 = st.columns(4)
@@ -912,80 +982,118 @@ def tab_summary(result, s: Scenario, afford: dict):
                 "bank.*")
 
     st.markdown("---")
+    st.markdown("## Scenario detail")
+    st.caption(
+        "Everything that went *into* the numbers above, grouped: "
+        "**Property** (physical facts) and **Purchase costs** on the left; "
+        "**Financing** and **AfA** (rent mode) on the right. Each section "
+        "is a standalone card.")
 
     # ---------- Detail: property / purchase / financing / AfA ----------
     c1, c2 = st.columns(2)
+
     with c1:
-        st.markdown("### Property")
-        prop = s.property
-        st.write(f"**Built:** {prop.year_built} "
-                  f"({2026 - prop.year_built} years old)")
-        st.write(f"**Living space:** {prop.living_space_m2:.2f} m²")
-        st.write(f"**Price per m²:** {eur(prop.purchase_price / prop.living_space_m2)}")
-        st.write(f"**Type:** {prop.property_type}")
-        if prop.year_last_major_renovation:
-            st.write(f"**Last renovated:** {prop.year_last_major_renovation}")
+        with st.container(border=True):
+            st.markdown("### Property")
+            prop = s.property
+            prop_rows = [
+                ("Built", f"{prop.year_built} ({2026 - prop.year_built} yr old)"),
+                ("Living space", f"{prop.living_space_m2:.2f} m²"),
+                ("Price per m²", eur(prop.purchase_price / prop.living_space_m2)),
+                ("Type", prop.property_type.capitalize()),
+            ]
+            if prop.year_last_major_renovation:
+                prop_rows.append(("Last renovated", str(prop.year_last_major_renovation)))
+            prop_md = ["| Field | Value |", "| --- | --- |"]
+            for k, v in prop_rows:
+                prop_md.append(f"| {k} | {v} |")
+            st.markdown("\n".join(prop_md))
 
-        st.markdown("### Purchase costs")
-        p = result.purchase
-        df = pd.DataFrame([
-            ("Purchase price", p.purchase_price),
-            ("Property transfer tax (Grunderwerbsteuer, 6.5% NRW)", p.grunderwerbsteuer),
-            ("Agent fee (Maklerprovision, ~3.57% buyer share)", p.maklerprovision),
-            ("Notary + land registry (Notar + Grundbuch, ~2%)", p.notary_grundbuch),
-            ("Initial renovation (capitalized, AfA)", p.renovation_capitalized),
-            ("**Total**", p.total_cost),
-        ], columns=["Item", "Amount (€)"])
-        df["Amount (€)"] = df["Amount (€)"].apply(lambda x: eur(x))
-        st.dataframe(df, hide_index=True, width="stretch")
+        with st.container(border=True):
+            st.markdown("### Purchase costs")
+            p = result.purchase
+            df = pd.DataFrame([
+                ("Purchase price", p.purchase_price),
+                ("Property transfer tax (Grunderwerbsteuer, 6.5% NRW)", p.grunderwerbsteuer),
+                ("Agent fee (Maklerprovision, ~3.57% buyer share)", p.maklerprovision),
+                ("Notary + land registry (Notar + Grundbuch, ~2%)", p.notary_grundbuch),
+                ("Initial renovation (capitalized, AfA)", p.renovation_capitalized),
+                ("Total", p.total_cost),
+            ], columns=["Item", "Amount (€)"])
+            df["Amount (€)"] = df["Amount (€)"].apply(lambda x: eur(x))
+            total_idx = len(df) - 1
+            styler_pc = (df.style
+                           .apply(lambda row: ["font-weight: bold; border-top: 1px solid #888"] * len(row)
+                                               if row.name == total_idx else [""] * len(row),
+                                  axis=1)
+                           .hide(axis="index"))
+            st.dataframe(styler_pc, width="stretch")
 
-        with st.expander("What are these fees?", expanded=False):
-            st.markdown(
-                "- **Grunderwerbsteuer** — one-time property-transfer tax. "
-                "Varies by Bundesland; NRW is 6.5%. Goes to the state, "
-                "not deductible.\n"
-                "- **Maklerprovision** — estate-agent commission. Since 2020 "
-                "the buyer covers ~half (~3.57% incl. VAT in NRW).\n"
-                "- **Notar + Grundbuch** — notary and land-registry fees. "
-                "Legally required for any property transfer; roughly 2% of "
-                "price combined.\n"
-                "- **Initial renovation** — major work in the first 3 years "
-                "may be treated as *Herstellungskosten* (added to the AfA "
-                "basis and depreciated) rather than immediately deductible "
-                "*Erhaltungsaufwand* — the Anschaffungsnaher-Aufwand rule "
-                "(§ 6 Abs. 1 Nr. 1a EStG).")
+            with st.expander("What are these fees?", expanded=False):
+                st.markdown(
+                    "- **Grunderwerbsteuer** — one-time property-transfer "
+                    "tax. Varies by Bundesland; NRW is 6.5%. Goes to the "
+                    "state, not deductible.\n"
+                    "- **Maklerprovision** — estate-agent commission. Since "
+                    "2020 the buyer covers ~half (~3.57% incl. VAT in NRW).\n"
+                    "- **Notar + Grundbuch** — notary and land-registry "
+                    "fees. Legally required for any property transfer; "
+                    "roughly 2% of price combined.\n"
+                    "- **Initial renovation** — major work in the first 3 "
+                    "years may be treated as *Herstellungskosten* (added to "
+                    "the AfA basis and depreciated) rather than immediately "
+                    "deductible *Erhaltungsaufwand* — the "
+                    "Anschaffungsnaher-Aufwand rule (§ 6 Abs. 1 Nr. 1a EStG).")
 
     with c2:
-        st.markdown("### Financing")
-        fin_df = pd.DataFrame([{
-            "Loan": l.name,
-            "Principal (€)": eur(l.principal),
-            "Rate": pct(l.interest_rate, 2),
-            "Monthly (€)": eur(l.monthly_payment),
-            "Annual (€)": eur(l.monthly_payment * 12),
-            "Cleared": _years_until_clear(result, l.name),
-        } for l in s.financing.loans])
-        st.dataframe(fin_df, hide_index=True, width="stretch")
+        with st.container(border=True):
+            st.markdown("### Financing")
+            fin_rows = [{
+                "Loan": l.name,
+                "Principal (€)": eur(l.principal),
+                "Rate": pct(l.interest_rate, 2),
+                "Monthly (€)": eur(l.monthly_payment),
+                "Annual (€)": eur(l.monthly_payment * 12),
+                "Cleared": _years_until_clear(result, l.name),
+            } for l in s.financing.loans]
+            total_monthly = sum(l.monthly_payment for l in s.financing.loans)
+            fin_rows.append({
+                "Loan": "Total",
+                "Principal (€)": eur(total_debt),
+                "Rate": "—",
+                "Monthly (€)": eur(total_monthly),
+                "Annual (€)": eur(total_monthly * 12),
+                "Cleared": f"{result.years_to_debt_free} yr",
+            })
+            fin_df = pd.DataFrame(fin_rows)
+            total_idx_f = len(fin_df) - 1
+            styler_fin = (fin_df.style
+                                .apply(lambda row: ["font-weight: bold; border-top: 1px solid #888"] * len(row)
+                                                    if row.name == total_idx_f else [""] * len(row),
+                                       axis=1)
+                                .hide(axis="index"))
+            st.dataframe(styler_fin, width="stretch")
 
-        total_monthly = sum(l.monthly_payment for l in s.financing.loans)
-        st.write(f"**Total debt:** {eur(total_debt)} "
-                  f"({pct(total_debt / price)} of price)")
-        st.write(f"**Total monthly payment:** {eur(total_monthly)}")
-        st.write(f"**Initial capital:** {eur(initial_cap)}")
-        st.write(f"**Years until all debt cleared:** "
-                  f"**{result.years_to_debt_free}**")
+            st.caption(
+                f"**Debt load:** {eur(total_debt)} "
+                f"({pct(total_debt / price)} of price) · "
+                f"**Initial capital:** {eur(initial_cap)} · "
+                f"**Years until all debt cleared:** {result.years_to_debt_free}")
 
         if s.mode == "rent" and result.afa_basis:
-            st.markdown("### AfA (annual depreciation)")
-            a = result.afa_basis
-            st.write(f"**Building value:** {eur(a.building_value)}")
-            st.write(f"**+ Capitalized fees:** {eur(a.capitalized_fees)}")
-            st.write(f"**= AfA basis:** {eur(a.total_basis)}")
-            st.write(f"**× Rate:** {pct(a.afa_rate, 2)} "
-                      f"({afa_useful_life_label(s.property.year_built, a.useful_life_years)}"
-                      f"-year life — "
-                      f"{'pre-1925 Altbau' if s.property.year_built < 1925 else 'post-1925'})")
-            st.write(f"**= Annual AfA:** {eur(a.annual_afa)}")
+            with st.container(border=True):
+                st.markdown("### AfA (annual depreciation)")
+                a = result.afa_basis
+                afa_md = ["| Step | Amount |", "| --- | ---: |"]
+                afa_md.append(f"| Building value | {eur(a.building_value)} |")
+                afa_md.append(f"| + Capitalized fees | {eur(a.capitalized_fees)} |")
+                afa_md.append(f"| **= AfA basis** | **{eur(a.total_basis)}** |")
+                useful = afa_useful_life_label(s.property.year_built, a.useful_life_years)
+                cohort = 'pre-1925 Altbau' if s.property.year_built < 1925 else 'post-1925'
+                afa_md.append(f"| × Rate | {pct(a.afa_rate, 2)} "
+                               f"({useful}-year life — {cohort}) |")
+                afa_md.append(f"| **= Annual AfA** | **{eur(a.annual_afa)}** |")
+                st.markdown("\n".join(afa_md))
 
 
 def tab_compare(result_live, result_rent, s: Scenario):
@@ -1024,21 +1132,23 @@ def tab_compare(result_live, result_rent, s: Scenario):
         st.markdown("### 🏘 Rent mode")
         _mode_summary_block(result_rent, s)
 
-    st.markdown("---")
-    st.markdown("### 50-year cumulative wealth change")
+    st.markdown(f"---\n### {s.globals.horizon_years}-year cumulative wealth change")
     chart_df = pd.DataFrame({
         "Year": cf_live.index,
         "Live": cf_live["cumulative"],
         "Rent": cf_rent["cumulative"],
     })
-    st.caption("Red solid = live in it; blue dashed = rent it out.")
+    st.caption("Red solid = live in it; blue dashed = rent it out. "
+               "Hover any line — the top-left value is the **Year**.")
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=chart_df["Year"], y=chart_df["Live"],
                               mode="lines", name="Live in it",
-                              line=dict(color="#E15759", width=3, dash="solid")))
+                              line=dict(color="#E15759", width=3, dash="solid"),
+                              hovertemplate="Live: €%{y:,.0f}<extra></extra>"))
     fig.add_trace(go.Scatter(x=chart_df["Year"], y=chart_df["Rent"],
                               mode="lines", name="Rent it out",
-                              line=dict(color="#4E79A7", width=3, dash="dash")))
+                              line=dict(color="#4E79A7", width=3, dash="dash"),
+                              hovertemplate="Rent: €%{y:,.0f}<extra></extra>"))
     fig.add_hline(y=0, line_dash="dash", line_color="grey")
     fig.update_layout(height=400, hovermode="x unified",
                        xaxis_title="Year", yaxis_title="Cumulative wealth change (€)",
@@ -1066,10 +1176,39 @@ def tab_compare(result_live, result_rent, s: Scenario):
                  -cf_live["net_property"].iloc[0] / 12,
                  -cf_rent["net_property"].iloc[0] / 12))
     cmp_df = pd.DataFrame(rows, columns=["Item", "Live (€/mo)", "Rent (€/mo)"])
+    # Treat sub-euro values as zero so live-mode "rent income" doesn't show
+    # up as "−€0" tinted green.
+    def _fmt_or_dash(x):
+        if abs(float(x)) < 0.5:
+            return "—"
+        return eur(float(x), 0)
     cmp_df_display = cmp_df.copy()
     for col in ["Live (€/mo)", "Rent (€/mo)"]:
-        cmp_df_display[col] = cmp_df_display[col].apply(lambda x: eur(x, 0))
-    st.dataframe(cmp_df_display, hide_index=True, width="stretch")
+        cmp_df_display[col] = cmp_df_display[col].apply(_fmt_or_dash)
+
+    total_idx_cmp = len(cmp_df_display) - 1  # "Net cash burden" row
+    value_cols = ["Live (€/mo)", "Rent (€/mo)"]
+    col_positions = {c: cmp_df.columns.get_loc(c) for c in value_cols}
+
+    def _style_cmp(row):
+        styles = [""] * len(row)
+        if row.name == total_idx_cmp:
+            return ["font-weight: bold; border-top: 1px solid #888"] * len(row)
+        for col, pos in col_positions.items():
+            try:
+                val = float(cmp_df.iloc[row.name][col])
+            except (ValueError, TypeError):
+                continue
+            if abs(val) < 0.5:
+                continue                       # leave neutral (dash)
+            if val > 0:
+                styles[pos] = "color: #c0392b" # outflow red
+            else:
+                styles[pos] = "color: #27ae60" # inflow / offset green
+        return styles
+
+    styler_cmp = cmp_df_display.style.apply(_style_cmp, axis=1).hide(axis="index")
+    st.dataframe(styler_cmp, width="stretch")
 
 
 def _mode_summary_block(result, s: Scenario):
@@ -1081,9 +1220,22 @@ def _mode_summary_block(result, s: Scenario):
     st.metric("Total interest paid (50 yr)",
                eur(float(result.amort["total_interest"].sum())))
     st.metric("Total tax paid (50 yr)", eur(float(cf["tax_owed"].sum())))
-    st.metric("Total capex (50 yr)", eur(float(cf["capex"].sum())))
+    st.metric(f"Total capex ({s.globals.horizon_years} yr)",
+               eur(float(cf["capex"].sum())),
+               help="**How much renovation spend is baked into this "
+                    "projection?** Sum of all scheduled + user-added "
+                    "renovation costs across the "
+                    f"{s.globals.horizon_years}-year horizon, in nominal "
+                    "€ (inflation is already applied inside each year's "
+                    "figure).")
     st.metric("Final cumulative wealth change", eur(final),
-               delta_color="normal" if final > 0 else "inverse")
+               delta_color="normal" if final > 0 else "inverse",
+               help="**Are you richer or poorer after the full horizon?** "
+                    "Net change in net worth = equity built + cumulative "
+                    "rent income + tax effects − all cash outflows (loan, "
+                    "operating, capex, tax). Positive = property pays "
+                    "back; negative = it costs more than it earns over "
+                    "the horizon.")
 
 
 def tab_cashflow(result, s: Scenario):
@@ -1095,23 +1247,32 @@ def tab_cashflow(result, s: Scenario):
     cf = result.cashflow
 
     fig = go.Figure()
+    bar_ht = "%{fullData.name}: €%{y:,.0f}<extra></extra>"
     fig.add_trace(go.Bar(x=cf.index, y=cf["rent_net"], name="Rent income",
-                          marker_color="#59A14F"))
+                          marker_color="#59A14F",
+                          hovertemplate=bar_ht))
     if s.mode == "live" and "avoided_rent" in cf.columns and cf["avoided_rent"].sum() > 0:
         fig.add_trace(go.Bar(x=cf.index, y=cf["avoided_rent"],
                               name="Avoided rent (imputed)",
-                              marker_color="#8CD17D"))
+                              marker_color="#8CD17D",
+                              hovertemplate=bar_ht))
     fig.add_trace(go.Bar(x=cf.index, y=-cf["loan_payment"], name="Loan payment",
-                          marker_color="#E15759"))
+                          marker_color="#E15759",
+                          hovertemplate=bar_ht))
     fig.add_trace(go.Bar(x=cf.index, y=-cf["op_costs"], name="Operating costs",
-                          marker_color="#F28E2B"))
+                          marker_color="#F28E2B",
+                          hovertemplate=bar_ht))
     fig.add_trace(go.Bar(x=cf.index, y=-cf["capex"], name="Capex",
-                          marker_color="#B07AA1"))
+                          marker_color="#B07AA1",
+                          hovertemplate=bar_ht))
     if s.mode == "rent":
         fig.add_trace(go.Bar(x=cf.index, y=-cf["tax_owed"], name="Tax",
-                              marker_color="#76B7B2"))
+                              marker_color="#76B7B2",
+                              hovertemplate=bar_ht))
     fig.add_trace(go.Scatter(x=cf.index, y=cf["net_property"], mode="lines+markers",
-                              name="Net property cashflow", line=dict(color="black", width=3)))
+                              name="Net property cashflow",
+                              line=dict(color="black", width=3),
+                              hovertemplate=bar_ht))
     fig.update_layout(barmode="relative", height=500, hovermode="x unified",
                        xaxis_title="Year", yaxis_title="€ per year",
                        yaxis_tickformat=",.0f")
@@ -1119,15 +1280,16 @@ def tab_cashflow(result, s: Scenario):
     st.caption("Red / orange / purple / teal = money out; green = money in; "
                "black line = net per year. Where the black line crosses zero, "
                "rent income starts covering all costs.")
-    st.caption("💡 Raise rent escalation by 1% on the sidebar — watch the "
-               "green bars compound and the black net line pull above zero "
-               "earlier.")
+    st.caption("💡 Raise *Annual rent escalation* in the sidebar's **Rent "
+               "parameters** expander by 1 % — watch the green bars compound "
+               "and the black net line pull above zero earlier.")
 
     st.markdown("### Cumulative position")
     fig2 = go.Figure()
     fig2.add_trace(go.Scatter(x=cf.index, y=cf["cumulative"], fill="tozeroy",
                                 name="Cumulative wealth change",
-                                line=dict(color="#4E79A7", width=2)))
+                                line=dict(color="#4E79A7", width=2),
+                                hovertemplate="Cumulative: €%{y:,.0f}<extra></extra>"))
     fig2.add_hline(y=0, line_dash="dash", line_color="grey")
     fig2.update_layout(height=350, hovermode="x unified",
                         xaxis_title="Year", yaxis_title="Cumulative (€)",
@@ -1151,8 +1313,43 @@ def tab_cashflow(result, s: Scenario):
         fmt = {"Cal yr": "{:.0f}"}
         for c in labels[1:]:
             fmt[c] = "€{:,.0f}"
-        st.dataframe(display.style.format(fmt),
-                      width="stretch", height=400)
+
+        inflow_cols = {"Rent net", "Avoided rent"}
+        outflow_cols = {"Loan", "Op costs", "Capex"}
+        signed_cols = {"Tax", "Net property", "Cumulative"}
+        RED = "color: #c0392b"
+        GREEN = "color: #27ae60"
+
+        def _style_cashflow(col):
+            name = col.name
+            if name in inflow_cols:
+                return [GREEN] * len(col)
+            if name in outflow_cols:
+                return [RED] * len(col)
+            if name in signed_cols:
+                # positive (cost/outflow) → red, negative (refund/inflow) → green
+                return [RED if v > 0 else GREEN if v < 0 else "" for v in col]
+            return [""] * len(col)
+
+        styled = (display.style.format(fmt)
+                               .apply(_style_cashflow, axis=0))
+        st.dataframe(styled, width="stretch", height=400)
+        st.markdown(
+            "**Column legend**\n\n"
+            "- **Cal yr** — calendar year.\n"
+            "- **Rent net** — rent income after vacancy (rent mode only).\n"
+            "- **Avoided rent** — warm rent you would otherwise pay (live mode only).\n"
+            "- **Loan** — principal + interest paid that year.\n"
+            "- **Op costs** — Hausgeld + insurance + maintenance + property tax.\n"
+            "- **Capex** — scheduled + user renovations.\n"
+            "- **Tax** — income tax effect. "
+            "**Negative = refund** (Verlustverrechnung: Werbungskosten + "
+            "AfA + interest > rent, so the loss offsets other income at "
+            "your marginal rate).\n"
+            "- **Net property** — the year's net cashflow.\n"
+            "- **Cumulative** — running total so far.\n\n"
+            "Green = inflow / positive effect, red = outflow / cost."
+        )
 
 
 def tab_costs(result, s: Scenario):
@@ -1160,41 +1357,89 @@ def tab_costs(result, s: Scenario):
     st.markdown(f"## Operating costs (year 1)  :violet-background[{s.mode.upper()} mode]")
     st.caption(f"Showing all cost lines. **{s.mode.upper()} mode** uses only the lines flagged for that mode. Costs escalate by {pct(s.globals.cost_inflation_annual)} per year on the cash flow tab.")
 
-    rows = []
-    total_active = 0
-    for cl in result.cost_lines:
-        active = (s.mode == "live" and cl.in_live) or (s.mode == "rent" and cl.in_rent)
-        if active:
-            total_active += cl.annual_eur
-        rows.append({
-            "Item": cl.name,
-            "Annual (€)": cl.annual_eur,
-            "Monthly (€)": cl.annual_eur / 12,
-            "Live": "✓" if cl.in_live else "—",
-            "Rent": "✓" if cl.in_rent else "—",
-            "Active": "✓" if active else "—",
-            "Deductible (rent)": "✓" if (cl.in_rent and cl.deductible_in_rent) else "—",
-            "Note": cl.note or "",
-        })
-    df = pd.DataFrame(rows)
-    st.dataframe(df.style.format({
-        "Annual (€)": "€{:,.0f}", "Monthly (€)": "€{:,.0f}",
-    }), width="stretch", hide_index=True, height=500)
+    with st.expander("ℹ How Hausgeld is split — [operating] vs [reserve]",
+                      expanded=False):
+        st.markdown(
+            "The monthly **Hausgeld** that every Eigentumswohnung pays to "
+            "its `[WEG]` (*Wohnungseigentümergemeinschaft* — the owners' "
+            "association) is split by the Verwalter into:\n\n"
+            "- **`[operating]` (Umlagen)** — running shared costs "
+            "(heating, water, cleaning, Hausmeister, Verwalter fee, "
+            "common-area electricity). On the tax side, deductible as "
+            "Werbungskosten on payment (accrual) basis.\n\n"
+            "- **`[reserve]` (Erhaltungsrücklage, § 19 WEG)** — savings "
+            "pot for future major works (roof, façade, lift). Per "
+            "*Trennungstheorie* the paid-in portion is **not** "
+            "deductible — only the amount the `[WEG]` actually spends in "
+            "a given year is.\n\n"
+            "The *Hausgeld reserve share* slider in the sidebar "
+            "(%) controls the split (default 40 %).")
 
-    st.markdown(f"**Total active in {s.mode.upper()} mode:** "
-                 f"{eur(total_active)}/yr ({eur(total_active / 12)}/mo)")
-
-    # Pie chart
+    # Pie chart (moved above the table — shows the big picture first).
     active_lines = [cl for cl in result.cost_lines
                     if (s.mode == "live" and cl.in_live) or (s.mode == "rent" and cl.in_rent)]
+    total_active = sum(cl.annual_eur for cl in active_lines)
     if active_lines:
+        st.markdown("### Cost composition")
         pie = pd.DataFrame([{"Item": cl.name, "€/yr": cl.annual_eur} for cl in active_lines])
-        fig = px.pie(pie, values="€/yr", names="Item", title="Cost composition")
-        fig.update_traces(textposition="inside", textinfo="percent+label")
+        fig = px.pie(pie, values="€/yr", names="Item")
+        fig.update_traces(
+            textposition="outside", textinfo="percent+label",
+            hovertemplate="%{label}<br>€%{value:,.0f} / yr (%{percent})<extra></extra>",
+        )
+        fig.update_layout(height=600, font=dict(size=13),
+                           showlegend=True,
+                           uniformtext=dict(minsize=10, mode="hide"),
+                           margin=dict(l=80, r=80, t=20, b=40))
         st.plotly_chart(fig, width="stretch")
         st.caption("The biggest slice is your single best target if you want "
                    "to lower running costs — Hausgeld and Grundsteuer "
-                   "typically dominate for apartments.")
+                   "typically dominate for apartments. Labels for tiny "
+                   "slices are hidden; see the legend for small items.")
+
+    st.metric(
+        f"Total active in {s.mode.upper()} mode",
+        f"{eur(total_active)} / yr",
+        delta=f"{eur(total_active / 12)} / mo",
+        delta_color="off",
+    )
+
+    # Full line-by-line table
+    st.markdown("### All cost lines")
+    NOTE_PREVIEW_CHARS = 90
+    md_lines = [
+        "| Item | Annual (€) | Monthly (€) | Live | Rent | Active | Deductible (rent) | Note |",
+        "| --- | ---: | ---: | :---: | :---: | :---: | :---: | --- |",
+    ]
+    for cl in result.cost_lines:
+        active = (s.mode == "live" and cl.in_live) or (s.mode == "rent" and cl.in_rent)
+        raw_note = (cl.note or "").replace("|", "\\|").replace("\n", " ")
+        if len(raw_note) > NOTE_PREVIEW_CHARS:
+            preview = raw_note[:NOTE_PREVIEW_CHARS].rstrip() + "…"
+            note_cell = (
+                f"<details><summary>{preview}</summary>{raw_note}</details>"
+            )
+        else:
+            note_cell = raw_note
+        md_lines.append(
+            f"| {cl.name} "
+            f"| {eur(cl.annual_eur)} "
+            f"| {eur(cl.annual_eur / 12)} "
+            f"| {'✓' if cl.in_live else '—'} "
+            f"| {'✓' if cl.in_rent else '—'} "
+            f"| {'✓' if active else '—'} "
+            f"| {'✓' if (cl.in_rent and cl.deductible_in_rent) else '—'} "
+            f"| {note_cell} |"
+        )
+    st.markdown("\n".join(md_lines), unsafe_allow_html=True)
+    st.caption(
+        "Column legend — "
+        "**Live / Rent** = whether the line is modelled in that mode. "
+        "**Active** = whether it is summed into *this* mode's total above "
+        "(✓ = current mode, — = reference only). "
+        "**Deductible (rent)** = counts as Werbungskosten against rental "
+        "income; only relevant in rent mode. "
+        "**Note** — long notes collapse to a preview; click ▸ to expand.")
 
 
 def tab_debt(result, s: Scenario):
@@ -1266,11 +1511,44 @@ def tab_debt(result, s: Scenario):
             "Total interest (€)": eur(total_interest),
             "Interest %": pct(total_interest / l.principal if l.principal else 0, 1),
         })
-    st.dataframe(pd.DataFrame(summary_rows), hide_index=True, width="stretch")
+    st.dataframe(
+        pd.DataFrame(summary_rows), hide_index=True, width="stretch",
+        column_config={
+            "Principal (€)": st.column_config.TextColumn(
+                "Principal (€)",
+                help="Amount borrowed at closing."),
+            "Rate": st.column_config.TextColumn(
+                "Rate",
+                help="Annual interest rate."),
+            "Years to clear": st.column_config.TextColumn(
+                "Years to clear",
+                help="Year in which the balance reaches 0 within the "
+                     "horizon. ≥N means the loan is still outstanding at "
+                     "the end of the projection."),
+            "Total payments (€)": st.column_config.TextColumn(
+                "Total payments (€)",
+                help="Principal + interest paid across the horizon "
+                     "(not present-valued)."),
+            "Total interest (€)": st.column_config.TextColumn(
+                "Total interest (€)",
+                help="Cumulative interest portion over the horizon — the "
+                     "true cost of the loan on top of principal."),
+            "Interest %": st.column_config.TextColumn(
+                "Interest %",
+                help="Total interest ÷ original principal. Useful for "
+                     "comparing Gesamtkosten across loans with different "
+                     "rates and durations."),
+        })
 
     with st.expander("📊 Year-by-year amortization table"):
         st.dataframe(am.style.format("€{:,.0f}"),
                       width="stretch", height=400)
+        st.caption(
+            "**Columns** — `*_balance`: outstanding principal at end of "
+            "year. `*_payment`: principal + interest paid that year. "
+            "`*_interest`: interest portion only. Principal portion = "
+            "`*_payment` − `*_interest`. Totals aggregate across all "
+            "loans.")
 
 
 def tab_capex(result, s: Scenario):
@@ -1281,17 +1559,24 @@ def tab_capex(result, s: Scenario):
     n_auto = len(result.auto_capex) if auto_on else 0
     n_user = len(s.user_capex)
 
+    st.caption(f"**{n_auto} auto-scheduled** + **{n_user} user-specified** items.")
     st.caption(
-        f"**{n_auto} auto-scheduled** + **{n_user} user-specified** items. "
-        + ("Auto-scheduled items come from the German component lifecycle "
-           "table (heating ~20 yr, roof ~40 yr, façade paint ~12 yr, …) "
-           "projected forward from the last Kernsanierung (or year built). "
-           "Turn them off with the **Auto-schedule component capex** "
-           "checkbox in the 🔨 sidebar expander."
-           if auto_on else
-           "Auto-scheduling is **off** — only user-specified items below. "
-           "Enable it in the 🔨 sidebar expander to project component "
-           "replacements from the German lifecycle table."))
+        "Auto-scheduled items come from the German component lifecycle "
+        "table (heating ~20 yr, roof ~40 yr, façade paint ~12 yr, …) "
+        "projected forward from the last Kernsanierung (or year built). "
+        "Turn them off with the **Auto-schedule component capex** "
+        "checkbox in the 🔨 sidebar expander."
+        if auto_on else
+        "Auto-scheduling is **off** — only user-specified items below. "
+        "Enable it in the 🔨 sidebar expander to project component "
+        "replacements from the German lifecycle table.")
+    st.caption(
+        "ℹ️ **Capex is identical in live and rent modes** — the physical "
+        "work on roof / heating / windows happens regardless of who "
+        "lives there. What changes between modes is the **tax treatment** "
+        "(in rent mode, capex is either immediately deductible — "
+        "Erhaltungsaufwand — or capitalized into AfA as Herstellungsaufwand; "
+        "in live mode nothing is deductible).")
 
     items = result.all_capex
     if not items:
@@ -1324,10 +1609,21 @@ def tab_capex(result, s: Scenario):
 
     # Timeline chart (Gantt-like) — colour by source so the user sees at a
     # glance what came from the auto-schedule vs their own entries.
+    st.markdown("### Capex timeline")
+    st.caption("Bubble size = inflated cost in the year due.")
     fig = px.scatter(df, x="Year", y="Item", size="Cost inflated (€)",
-                      color="Source", hover_data=["Cost today (€)", "Capitalized"],
-                      title="Capex timeline (bubble size = inflated cost)")
-    fig.update_layout(height=max(400, 30 * len(df)))
+                      color="Source",
+                      hover_data={
+                          "Year": True,
+                          "Item": True,
+                          "Source": True,
+                          "Cost today (€)": ":,.0f",
+                          "Cost inflated (€)": ":,.0f",
+                          "Capitalized": True,
+                      })
+    fig.update_layout(height=max(420, 32 * len(df)),
+                       font=dict(size=13),
+                       margin=dict(l=10, r=10, t=10, b=10))
     st.plotly_chart(fig, width="stretch")
     st.caption("Each bubble is a scheduled renovation; bigger = more "
                "expensive. Colour indicates **Source**: Auto = generated "
@@ -1354,10 +1650,12 @@ def tab_capex(result, s: Scenario):
             name=f"Smoothed reserve ({eur(steady_reserve_yr)}/yr)",
             mode="lines",
             line=dict(color="#E15759", width=2, dash="dash")))
-    fig2.update_layout(height=320, yaxis_tickformat=",.0f",
-                        title="Annual capex — lumpy actual vs. smoothed reserve",
+    st.markdown("### Annual capex — lumpy actual vs. smoothed reserve")
+    fig2.update_layout(height=340, yaxis_tickformat=",.0f",
                         hovermode="x unified",
-                        xaxis_title="Year", yaxis_title="€ per year")
+                        font=dict(size=13),
+                        xaxis_title="Year", yaxis_title="€ per year",
+                        margin=dict(l=10, r=10, t=10, b=10))
     st.plotly_chart(fig2, width="stretch")
     st.caption(
         f"**Blue bars** = lumpy actual spend. **Red dashed line** = "
@@ -1390,17 +1688,41 @@ def tab_tax(result, s: Scenario):
 
     a = result.afa_basis
     st.markdown("### AfA basis")
-    st.write(f"**Building share of price:** "
-              f"{pct(a.building_value / s.property.purchase_price, 1)}")
-    st.write(f"**Building value:** {eur(a.building_value)}")
-    st.write(f"**Capitalized purchase fees:** {eur(a.capitalized_fees)} "
-              f"(Grunderwerb + Makler + 80% of Notar, × building share)")
-    st.write(f"**Capitalized renovation:** {eur(a.capitalized_renovation)}")
-    st.write(f"**Total AfA basis:** {eur(a.total_basis)}")
-    st.write(f"**AfA rate:** {pct(a.afa_rate, 2)} "
-              f"({afa_useful_life_label(s.property.year_built, a.useful_life_years)}"
-              "-year useful life)")
-    st.write(f"**Annual AfA deduction:** **{eur(a.annual_afa)}**")
+    afa_rate_label = (f"{pct(a.afa_rate, 2)} "
+                       f"({afa_useful_life_label(s.property.year_built, a.useful_life_years)}"
+                       "-year useful life)")
+    afa_rows = [
+        ("Building share of price",
+         pct(a.building_value / s.property.purchase_price, 1),
+         "Share of the purchase price attributed to the building "
+         "(AfA-eligible); the rest is land (not depreciable). Driven by "
+         "Bodenrichtwert × plot when set, else property-type defaults "
+         "(apartment 80 %, house 65 %)."),
+        ("Building value", eur(a.building_value),
+         "Purchase price × building share. The capital portion that can "
+         "be written off as AfA."),
+        ("Capitalized purchase fees", eur(a.capitalized_fees),
+         "Grunderwerbsteuer + Maklerprovision + 80 % of Notar & Grundbuch, "
+         "scaled by the building share. Added to the AfA basis."),
+        ("Capitalized renovation", eur(a.capitalized_renovation),
+         "User-specified renovations marked as Capitalized "
+         "(Herstellungskosten) plus any Anschaffungsnaher Aufwand "
+         "reclassified from first-3-year spend."),
+        ("**Total AfA basis**", f"**{eur(a.total_basis)}**",
+         "Sum of the three lines above. The denominator for annual AfA."),
+        ("AfA rate", afa_rate_label,
+         "2 % for 1925-2022 builds (50-yr life); 2.5 % for pre-1925 Altbau "
+         "(40 yr); 3 % for post-2023 Neubau (33⅓ yr) under § 7 Abs. 4 EStG."),
+        ("**Annual AfA deduction**", f"**{eur(a.annual_afa)}**",
+         "Total basis × rate. The yearly amount subtracted from taxable "
+         "rental income."),
+    ]
+    md = ["| Component | Value | What it means |",
+           "| --- | ---: | --- |"]
+    for comp, val, explainer in afa_rows:
+        explainer_clean = explainer.replace("|", "\\|")
+        md.append(f"| {comp} | {val} | {explainer_clean} |")
+    st.markdown("\n".join(md))
 
     st.markdown("### Annual tax computation")
     tx = result.tax
@@ -1418,17 +1740,29 @@ def tab_tax(result, s: Scenario):
     fig.add_trace(go.Scatter(x=tx.index, y=tx["taxable_income"],
                               mode="lines+markers", name="Taxable income",
                               line=dict(color="black", width=3)))
-    fig.update_layout(barmode="relative", height=400, hovermode="x unified",
-                       xaxis_title="Year", yaxis_title="€",
+    # Actual tax owed = taxable × marginal rate. Drawn as a second line so
+    # users immediately see it move when they drag the marginal-rate slider.
+    fig.add_trace(go.Scatter(
+        x=tx.index, y=tx["tax_owed"],
+        mode="lines+markers", name=f"Tax owed @ {pct(s.globals.marginal_tax_rate)}",
+        line=dict(color="#FF9DA7", width=3, dash="dot")))
+    fig.update_layout(barmode="relative", height=440, hovermode="x unified",
+                       xaxis_title="Year",
+                       yaxis_title="Taxable income / deductions / tax (€)",
                        yaxis_tickformat=",.0f")
     st.plotly_chart(fig, width="stretch")
-    st.caption("Green = taxable rent income; other colours = deductions. "
-               "Black line = your taxable result. **Negative values are "
-               "refunds**: rental losses offset other income at your marginal "
-               "rate (Verlustverrechnung, § 10d EStG), typical in early years "
-               "when AfA + interest + costs exceed rent.")
-    st.caption("💡 Lower your marginal rate on the sidebar — see how the red "
-               "interest deduction loses value when the rate is lower.")
+    st.caption("Green bar = taxable rent income; red/orange/teal/purple bars "
+               "= deductions. **Black line** = taxable result (rent income − "
+               "deductions). **Pink dotted line** = tax actually owed "
+               "(taxable × marginal rate). "
+               "Negative values are **refunds** (Verlustverrechnung, "
+               "§ 10d EStG) — losses offset other income at your marginal "
+               "rate, typical in early years when AfA + interest + costs "
+               "exceed rent.")
+    st.caption("💡 Drag the **Marginal tax rate** slider in the sidebar's "
+               "🌍 **Global assumptions** expander — the pink dotted **Tax "
+               "owed** line rescales immediately (the bars and black line "
+               "are pre-rate, so they don't move).")
 
     st.markdown(f"**Total tax over {s.globals.horizon_years} years:** "
                  f"{eur(float(tx['tax_owed'].sum()))}")
@@ -1477,60 +1811,86 @@ def tab_getting_started():
         st.markdown(
             "- **Purchase price**: what's on the contract.\n"
             "- **Living space / plot size**: Wohnfläche in m²; plot is your "
-            "share of the WEG plot for an apartment, the full Grundstück for "
-            "a house.\n"
+            "share of the WEG (Wohnungseigentümergemeinschaft — the owners' "
+            "association) plot for an apartment, the full Grundstück for a "
+            "house.\n"
             "- **Year built / last renovated**: drives AfA rate and capex "
             "scheduling. Leave year-last-renovated at 0 if nothing major "
             "happened.\n"
-            "- **Bodenrichtwert (€/m²)**: land value per m² from "
-            "[boris.nrw.de](https://www.boris.nrw.de/). **Can be left blank** — "
-            "the engine then uses property-type defaults (apartment = 80% "
-            "building share, house = 65%).\n"
+            "- **Bodenrichtwert (€/m²)**: official land reference value "
+            "published by the municipal Gutachterausschuss. Look up on "
+            "[boris.nrw.de](https://www.boris.nrw.de/) (NRW) or your "
+            "Bundesland's equivalent. **Can be left blank** — the engine "
+            "then uses property-type defaults (apartment = 80% building "
+            "share, house = 65%).\n"
             "- **Energy demand (kWh/m²/yr)**: from the Energieausweis. "
-            "<100 good, 100-150 average, 150+ poor.\n"
-            "- **Type / elevator / Denkmal**: apartment vs. house, lift flag, "
-            "listed-building flag."
+            "Roughly: <100 ≈ new or KfW; 100-150 ≈ typical 1990–2010 "
+            "stock; 150+ ≈ unrenovated pre-1990. See the full "
+            "A+–H class table in the sidebar tooltip.\n"
+            "- **Type**: *apartment* (Eigentumswohnung, a share in a WEG) "
+            "or *house* (detached, full plot). Apartment scenarios pay "
+            "Hausgeld; houses don't.\n"
+            "- **Elevator**: lift flag. Raises Hausgeld (service contract "
+            "+ eventual renewal) and the II. BV maintenance-reserve "
+            "estimate. Usually absent in small houses.\n"
+            "- **Denkmal**: listed-building flag (§ 7i / § 7h EStG). "
+            "Enhanced AfA (9 %/yr years 1–8, 7 %/yr years 9–12) on the "
+            "qualifying renovation portion — **flag only, engine does "
+            "not yet apply the elevated AfA.**"
         )
 
     with st.expander("💰 Financing — initial capital and loans", expanded=False):
         st.markdown(
-            "**Mental model:** you close the purchase with `initial_capital "
-            "+ Σ annuity loans = price + fees`.\n\n"
+            "**Mental model / closing identity:** \n"
+            "`price + fees = your own capital + Σ loan principals`. \n"
+            "Fees are the Nebenkosten (notary, Grundbuch, Grunderwerbsteuer, "
+            "Makler). Whatever is left once you subtract your own capital "
+            "and the other loans from *price + fees* is the bank loan you "
+            "still need — the *Suggested Bank principal* hint below.\n\n"
             "- **Initial capital deployed** = your own money at closing "
-            "(savings, gifts, Bauspar payouts). No repayment, no interest. "
-            "This shrinks what the bank has to finance.\n"
+            "(*closing* = notary signing / Beurkundungstermin). Savings, "
+            "gifts, Bauspar payouts. No repayment, no interest. This "
+            "shrinks what the bank has to finance.\n"
             "- **Loans table** = third-party money you pay back over time. "
             "One row per tranche. Columns:\n"
             "  - *Annuity?* → German Annuitätendarlehen (constant monthly "
             "payment). Uncheck for fixed-payment loans (LBS Bausparverträge, "
             "family loans).\n"
             "  - *Adaptive?* → this loan absorbs freed-up debt capacity "
-            "once the others clear. The *Monthly (€)* field then becomes the "
-            "**minimum** payment; the engine lifts it up to the total "
-            "monthly debt budget. Typical for low-priority family / "
-            "0%-interest loans you want to retire faster.\n"
+            "once the others clear. The *Monthly (€)* field then becomes "
+            "the **minimum** payment; the engine lifts it up to the "
+            "*Monthly loan budget [adaptive]* ceiling. Typical for "
+            "low-priority family / 0 %-interest loans you want to retire "
+            "faster.\n"
             "- **Family / Bauspar loans.** If the family cash arrives at "
             "closing, fold it into *Initial capital* and add a non-annuity "
             "row here to track the ongoing repayment — don't double-count.\n"
-            "- **Total monthly debt budget** — only used when ≥ 1 loan is "
-            "flagged Adaptive. Otherwise it's inert and hidden.\n"
+            "- **Monthly loan budget [adaptive]** — only used when ≥ 1 loan "
+            "is flagged Adaptive. Otherwise inert and hidden. Covers loan "
+            "payments only (principal + interest), *not* Hausgeld / "
+            "insurance / maintenance.\n"
             "- **Suggested Bank principal hint** in the sidebar is "
-            "`total purchase cost − initial capital`. If your actual bank "
-            "loan differs, one of the two numbers is probably off."
+            "`total purchase cost − initial capital − Σ other loan "
+            "principals`. If your actual bank loan differs, one of the "
+            "numbers is probably off."
         )
 
     with st.expander("🏘 Rent parameters — rent-mode only", expanded=False):
         st.markdown(
             "Used **only** when the mode radio is set to *rent*. Safe to "
             "leave at defaults if you only care about living in the place.\n"
-            "- **Monthly rent (Kaltmiete)**: expected net cold rent. Look up "
-            "Mietspiegel or comparable listings for your postcode.\n"
+            "- **Monthly rent (Kaltmiete)**: expected net cold rent. Look "
+            "up realistic numbers at "
+            "[ImmoScout24](https://www.immobilienscout24.de/) or "
+            "[mietspiegeltabelle.de](https://www.mietspiegeltabelle.de/) "
+            "for your postcode.\n"
             "- **Annual rent escalation**: 1.5-2.5% for regulated markets "
-            "(Berlin, Munich, Hamburg Mietpreisbremse); up to 3% outside the "
-            "cap. Long-run German CPI anchors around 2% (ECB target).\n"
-            "- **Vacancy (months/year)**: risk discount for empty periods "
-            "between tenants or during renovations. 0.15 (low-turnover city) "
-            "to 1.0+ (problem asset). Engine multiplies rent by "
+            "(Berlin, Munich, Hamburg Mietpreisbremse); up to 3% outside "
+            "the cap. Long-run German CPI anchors around 2% "
+            "([ECB target](https://www.ecb.europa.eu/mopo/strategy/pricestab/html/index.en.html)).\n"
+            "- **Vacancy (months/year)**: whole months per year the flat "
+            "sits empty between tenants. 0–1 (hot city) to 4+ (renovation "
+            "gaps / problem asset). Engine multiplies rent by "
             "(12 − vacancy) / 12.\n"
             "- **Property manager**: check if you'll outsource tenant "
             "handling to a Hausverwaltung. 4-8% of gross rent is typical. "
@@ -1563,17 +1923,23 @@ def tab_getting_started():
 
     with st.expander("🌍 Global assumptions — defaults are well-sourced", expanded=False):
         st.markdown(
-            "- **Monthly household net income**: Netto take-home. Used only "
-            "for the 30%-of-income affordability check.\n"
-            "- **Other monthly savings**: savings unrelated to the property.\n"
-            "- **Cost inflation**: **2% default** (ECB target, Destatis "
-            "long-run). Bump to 3% if you think the 2022+ regime persists.\n"
+            "- **Monthly household net income**: Netto take-home. Drives "
+            "the affordability ratios (loan/income, net burden/income, "
+            "price/annual income). Does *not* enter the cashflow.\n"
+            "- **Other monthly savings**: savings unrelated to the "
+            "property. Feeds the cumulative-wealth chart, *not* the "
+            "affordability ratios.\n"
+            "- **Cost inflation**: **2% default** (Destatis long-run; "
+            "[ECB target](https://www.ecb.europa.eu/mopo/strategy/pricestab/html/index.en.html)). "
+            "Bump to 3% if you think the 2022+ regime persists.\n"
             "- **Marginal tax rate**: your Grenzsteuersatz (§ 32a EStG). "
-            "Roughly 30% around €35k single / €70k couple, 38% around €60k / "
-            "€120k, 42% at the €68k single / €136k couple reitch-threshold.\n"
+            "Roughly 30% around €35k single / €70k couple, 38% around "
+            "€60k / €120k, 42% at the €68k single / €136k couple "
+            "Reichensteuer threshold.\n"
             "- **Horizon**: **50 years default** (matches German AfA useful "
-            "life for 1925-2022 builds). Shorter misses post-debt-free "
-            "years; longer compounds more model error."
+            "life for 1925-2022 builds). The slider lets you shorten or "
+            "extend between 10 and 60 years. Shorter horizons miss "
+            "post-debt-free years; longer ones compound more model error."
         )
 
     with st.expander("🔨 User-specified renovations — optional", expanded=False):
@@ -1942,9 +2308,13 @@ def _render_footer():
         "target='_blank' style='color: #4E79A7; text-decoration: none;'>"
         "docs/REFERENCES.md</a> for sources."
         "<br>"
-        "App version: see <a href='https://github.com/nicofirst1/immokalkul/commits/main' "
+        f"App version {APP_VERSION} · "
+        "<a href='https://github.com/nicofirst1/immokalkul' "
+        "target='_blank' style='color: #4E79A7; text-decoration: none;'>"
+        "🔓 open source on GitHub</a> · "
+        "<a href='https://github.com/nicofirst1/immokalkul/commits/main' "
         "target='_blank' style='color: #4E79A7; text-decoration: none;'>git "
-        "history</a> — German rules current as of Q4 2025."
+        "history</a> — German rules current as of Q1 2026."
         "</div>",
         unsafe_allow_html=True,
     )

@@ -178,6 +178,10 @@ def operating_costs_year_one(p: Property,
         "Building insurance (Wohngebäudeversicherung)",
         costs.building_insurance_eur_per_m2_year * p.living_space_m2,
         in_live=True, in_rent=True, deductible_in_rent=True,
+        note=("Covers fire, storm, water damage to the building shell. "
+              "Typical €3–6/m²/yr depending on region and flood zone. "
+              "Werbungskosten-deductible in rent mode; in live mode "
+              "you pay but cannot deduct."),
     ))
 
     # --- Liability insurance (both modes) ---
@@ -185,6 +189,12 @@ def operating_costs_year_one(p: Property,
         "Liability insurance (Haus- und Grundbesitzerhaftpflicht)",
         costs.liability_insurance_annual,
         in_live=True, in_rent=True, deductible_in_rent=True,
+        note=("Owner's liability for accidents on the property (ice on "
+              "the path, falling roof tiles, dog bites on your land). "
+              "Typical €80–200/yr. Sometimes already bundled into a "
+              "Privathaftpflicht — if so, leave the sidebar value at 0 "
+              "to avoid double-counting. Werbungskosten-deductible in "
+              "rent mode."),
     ))
 
     # --- Vermieter-Rechtsschutz (rent only) ---
@@ -192,6 +202,10 @@ def operating_costs_year_one(p: Property,
         "Vermieter-Rechtsschutz",
         rent.landlord_legal_insurance_annual,
         in_live=False, in_rent=True, deductible_in_rent=True,
+        note=("Landlord legal-protection insurance. Covers lawyer and "
+              "court fees for tenant disputes, eviction proceedings, and "
+              "damage recovery. Typical €80–300/yr; fully deductible as "
+              "Werbungskosten in rent mode. Not applicable in live mode."),
     ))
 
     # --- Property manager (rent only, optional) ---

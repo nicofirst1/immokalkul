@@ -1,4 +1,4 @@
-# immokalkul
+# Immokalkul
 
 A small Python program for evaluating German property purchases. Models both **live** (owner-occupied) and **rent** (buy-to-let) modes from a single scenario, with proper German rules baked in.
 

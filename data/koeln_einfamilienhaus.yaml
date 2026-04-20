@@ -50,7 +50,7 @@ rent:
   monthly_rent: 1750
   monthly_parking: 0
   annual_rent_escalation: 0.02
-  expected_vacancy_months_per_year: 0.3
+  expected_vacancy_months_per_year: 2
   landlord_legal_insurance_annual: 300
   has_property_manager: false
   property_manager_pct_of_rent: 0.06

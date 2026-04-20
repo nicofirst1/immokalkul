@@ -26,13 +26,13 @@ financing:
   initial_capital: 200000      # cash deployed at closing (incl. Bauspar savings & family-loan proceeds)
   debt_budget_monthly: 1745    # ceiling for total monthly debt service — only used when a loan is adaptive
   loans:
-    - name: LBS
+    - name: Bausparer (LBS)
       principal: 50000
       interest_rate: 0.007
       monthly_payment: 295
       is_annuity: false        # LBS Bausparvertrag is fixed-payment
       is_adaptive: false
-    - name: Mamma
+    - name: Family loan
       principal: 100000
       interest_rate: 0.0
       monthly_payment: 100     # MINIMUM; adaptive reallocation lifts it once other loans clear
@@ -61,7 +61,7 @@ rent:
   monthly_rent: 2200
   monthly_parking: 0
   annual_rent_escalation: 0.02
-  expected_vacancy_months_per_year: 0.25
+  expected_vacancy_months_per_year: 2
   landlord_legal_insurance_annual: 300
   has_property_manager: false
   property_manager_pct_of_rent: 0.06

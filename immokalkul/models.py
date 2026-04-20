@@ -91,7 +91,7 @@ class RentParameters:
     monthly_rent: float                    # Kaltmiete
     monthly_parking: float = 0.0
     annual_rent_escalation: float = 0.02   # German Mietspiegel typical
-    expected_vacancy_months_per_year: float = 0.25
+    expected_vacancy_months_per_year: float = 2.0
     landlord_legal_insurance_annual: float = 300.0
     has_property_manager: bool = False     # adds 5-8% mgmt fee
     property_manager_pct_of_rent: float = 0.06
