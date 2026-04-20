@@ -4,10 +4,21 @@ YAML serialization for Scenario objects.
 Lets users save/load property scenarios as plain text files.
 """
 from __future__ import annotations
+from dataclasses import fields
 from pathlib import Path
 import yaml
 from .models import (Scenario, Property, Loan, Financing, CapexItem,
                       RentParameters, LiveParameters, CostInputs, GlobalParameters)
+
+_VALID_MODES = {"live", "rent"}
+
+
+def _only_known_fields(cls, d: dict) -> dict:
+    """Filter a YAML-derived dict to the subset of keys `cls` accepts.
+    Unknown keys are silently dropped — forward-compat with older /
+    newer YAML schemas so users can annotate without crashing load."""
+    known = {f.name for f in fields(cls)}
+    return {k: v for k, v in (d or {}).items() if k in known}
 
 
 def load_scenario(path: str | Path) -> Scenario:
@@ -15,8 +26,9 @@ def load_scenario(path: str | Path) -> Scenario:
     with open(path) as f:
         d = yaml.safe_load(f)
 
-    prop = Property(**d["property"])
-    loans = [Loan(**l) for l in d["financing"]["loans"]]
+    prop = Property(**_only_known_fields(Property, d["property"]))
+    loans = [Loan(**_only_known_fields(Loan, l))
+             for l in d["financing"]["loans"]]
 
     # Backward compat: legacy YAMLs had a top-level `adaptive_mamma` flag and
     # hardcoded the adaptive loan by name. Migrate by flagging the loan named
@@ -36,14 +48,21 @@ def load_scenario(path: str | Path) -> Scenario:
         notary_pct=d["financing"].get("notary_pct"),
         grundbuch_pct=d["financing"].get("grundbuch_pct"),
     )
-    costs = CostInputs(**d["costs"])
-    rent = RentParameters(**d["rent"])
-    live = LiveParameters(**d["live"])
-    globs = GlobalParameters(**d["globals"])
-    user_capex = [CapexItem(**c) for c in d.get("user_capex", [])]
+    costs = CostInputs(**_only_known_fields(CostInputs, d["costs"]))
+    rent = RentParameters(**_only_known_fields(RentParameters, d["rent"]))
+    live = LiveParameters(**_only_known_fields(LiveParameters, d["live"]))
+    globs = GlobalParameters(**_only_known_fields(GlobalParameters, d["globals"]))
+    user_capex = [CapexItem(**_only_known_fields(CapexItem, c))
+                  for c in d.get("user_capex", [])]
+
+    mode = d["mode"]
+    if mode not in _VALID_MODES:
+        raise ValueError(
+            f"Scenario.mode must be one of {sorted(_VALID_MODES)}, "
+            f"got {mode!r}")
 
     return Scenario(
-        mode=d["mode"],
+        mode=mode,
         property=prop,
         financing=fin,
         costs=costs,

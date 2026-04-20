@@ -7,6 +7,22 @@ All notable changes to **immokalkul** are documented here. Format based on
 Minor versions correspond to audit cycles — each audit report and its
 actionable-items list live in [`docs/audits/`](docs/audits/).
 
+## [1.7.1] — 2026-04-20
+
+**Human UX audit v1 — complex item [C10], layers 1 + 2.** Property-based fuzz tests and a hand-curated YAML noise corpus. The fuzz surfaced two real robustness bugs; both are fixed here.
+
+### Added
+- `hypothesis>=6.100,<7.0` as a dev dependency; `[tool.hypothesis]` with `derandomize=true` for CI determinism
+- `tests/test_fuzz_models.py` — 6 invariant tests × 40 examples each: YAML round-trip, typed-error-or-success contract on `run(s)`, purchase-cost reconciliation, no NaN/inf in cashflow, affordability survival, annuity-balance monotonicity
+- `tests/test_yaml_noise.py` — 8 hand-curated degenerate YAMLs (missing key, unknown key, bad mode, 0-budget adaptive, empty loans, negative capex cost, 1e12 price, 24-month vacancy)
+
+### Fixed
+- Unknown YAML keys no longer raise `TypeError` on load — every dataclass construction goes through `_only_known_fields()` for forward-compat with older / newer schemas
+- `mode` values other than `"live"` / `"rent"` are now rejected with a clear `ValueError` on load; previously silently accepted and the engine ran with garbage
+
+### Changed
+- `APP_VERSION` bumped to 1.7.1
+
 ## [1.7.0] — 2026-04-20
 
 **Human UX audit v1 — complex item [C1].** Fixes a systemic stale-widget bug that affected every sidebar input.
