@@ -12,7 +12,7 @@ property:
   living_space_m2: 128.25
   plot_size_m2: 128.25         # for an apartment, often = living space (your share)
   year_built: 1904
-  year_last_major_renovation: null  # null if never; e.g. 1995 if Kernsaniert in 1995
+  year_last_major_renovation: 1995  # year of last Kernsanierung; null if never renovated
   property_type: apartment
   heating_type: gas
   energy_demand_kwh_per_m2_year: 138

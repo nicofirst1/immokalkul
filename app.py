@@ -244,20 +244,39 @@ def sidebar_inputs():
                 s.property.property_type = st.selectbox(
                     "Type", ["apartment", "house"],
                     index=0 if s.property.property_type == "apartment" else 1)
-                s.property.has_elevator = st.checkbox("Has elevator", s.property.has_elevator)
+                s.property.has_elevator = st.checkbox(
+                    "Has elevator", s.property.has_elevator,
+                    help="Adds +€1/m²/yr to the II. BV maintenance reserve "
+                         "(service contracts + eventual renewal). Only "
+                         "applies when the II. BV table beats the Petersche "
+                         "Formel — typically older buildings.")
 
             with st.expander("🔬 Tax-relevant details (can skip for first pass)", expanded=False):
                 lr = s.property.year_last_major_renovation
                 s.property.year_last_major_renovation = int(st.number_input(
                     "Year last renovated (0 = never)",
                     value=int(lr) if lr else 0, min_value=0, max_value=2030, step=1,
-                    help="Kernsanierung year, if any. Resets the component "
-                         "lifecycle clock for heating, bathroom, electrics.")) or None
+                    help="The 4-digit calendar year of the last Kernsanierung "
+                         "(e.g. **1995** if heating + bathroom + electrics "
+                         "were redone in 1995). Resets the component "
+                         "lifecycle clock from that year. Set **0** if no "
+                         "major renovation has happened since the build "
+                         "year.")) or None
                 s.property.energy_demand_kwh_per_m2_year = st.number_input(
                     "Energy demand (kWh/m²/yr)",
                     value=float(s.property.energy_demand_kwh_per_m2_year),
                     step=5.0, format="%.0f",
-                    help="From the Energieausweis. <100 good, 100-150 average, 150+ poor.")
+                    help="From the Energieausweis. German efficiency classes "
+                         "(§ 16 GEG):\n"
+                         "- **A+**: < 30\n"
+                         "- **A**: 30–50\n"
+                         "- **B**: 50–75\n"
+                         "- **C**: 75–100\n"
+                         "- **D**: 100–130\n"
+                         "- **E**: 130–160\n"
+                         "- **F**: 160–200\n"
+                         "- **G**: 200–250\n"
+                         "- **H**: > 250")
                 s.property.bodenrichtwert_eur_per_m2 = st.number_input(
                     "Bodenrichtwert (€/m²)",
                     value=float(s.property.bodenrichtwert_eur_per_m2 or 0),

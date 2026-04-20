@@ -35,9 +35,12 @@ def test_bonn_reference_cumulative(bonn_result) -> None:
       roof, façade, plumbing risers) — the WEG's Erhaltungsrücklage funds
       ~85 % of those costs via Hausgeld, so counting them 100 % against the
       owner was double-counting. Pre-fix pin €500,507 over-charged.
+    - Bonn sample's `year_last_major_renovation` was set from null → 1995
+      (Kernsanierung anchor); pushed component-replacement years out and
+      lifted the cumulative from €525,196.
     """
     final = float(bonn_result.cashflow["cumulative"].iloc[-1])
-    assert final == pytest.approx(525_196, abs=1)
+    assert final == pytest.approx(526_894, abs=1)
 
 
 def test_horizon_respected(bonn_scenario) -> None:
