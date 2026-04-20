@@ -16,7 +16,7 @@ Primary legal sources:
 - Bodenrichtwert Bonn-Poppelsdorf 2024: €1,000-1,600/m² range (verified Jan 2026)
 
 Verification sources (where the above interpretations were confirmed), with a
-reliability ranking and caveats, are listed in REFERENCES.md at the repo root.
+reliability ranking and caveats, are listed in docs/REFERENCES.md.
 """
 from __future__ import annotations
 from dataclasses import dataclass

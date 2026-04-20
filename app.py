@@ -1731,7 +1731,7 @@ This tool computes German property finance for both **live** (owner-occupied) an
     st.markdown("""
 ### Citations
 
-All German constants live in `immokalkul/rules_de.py` with citations to source. Key links below; the [REFERENCES.md](https://github.com/nicofirst1/immokalkul/blob/main/REFERENCES.md) file in the repo has the full bibliography with a reliability ranking.
+All German constants live in `immokalkul/rules_de.py` with citations to source. Key links below; the [docs/REFERENCES.md](https://github.com/nicofirst1/immokalkul/blob/main/docs/REFERENCES.md) file in the repo has the full bibliography with a reliability ranking.
 
 **Primary / official sources**
 - [Finanzamt NRW — Abschreibung für Vermietungsobjekte](https://www.finanzamt.nrw.de/steuerinfos/privatpersonen/haus-und-grund/so-ermitteln-sie-die-abschreibung-fuer-ihr) — AfA rates (2.5% / 2% / 3%) and capitalizable fees
@@ -1742,7 +1742,7 @@ All German constants live in `immokalkul/rules_de.py` with citations to source. 
 - [Gesetze im Internet — § 19 WEG](https://www.gesetze-im-internet.de/woeigg/__19.html) — Erhaltungsrücklage (post-WEG-Reform 2020)
 - [Gesetze im Internet — § 28 II. BV](https://www.gesetze-im-internet.de/bv_2/__28.html) — age-based maintenance reserve table
 
-**Reputable professional / institutional** — Rosepartner, Pandotax, Schiffer, Sparkasse, Wüstenrot, Interhyp, Hypofriend (see REFERENCES.md).
+**Reputable professional / institutional** — Rosepartner, Pandotax, Schiffer, Sparkasse, Wüstenrot, Interhyp, Hypofriend (see docs/REFERENCES.md).
 
 **Aggregators / content marketing** — Immowelt, Homeday, Techem, Effi, LPE, private Bodenrichtwert portals. Use only for cross-checking.
 
@@ -1938,9 +1938,9 @@ def _render_footer():
         "style='color: #4E79A7; text-decoration: none;'>Nicolo' Brandizzi</a>"
         "<br>"
         "Not financial advice — verify with a Steuerberater or your bank. "
-        "See <a href='https://github.com/nicofirst1/immokalkul/blob/main/REFERENCES.md' "
+        "See <a href='https://github.com/nicofirst1/immokalkul/blob/main/docs/REFERENCES.md' "
         "target='_blank' style='color: #4E79A7; text-decoration: none;'>"
-        "REFERENCES.md</a> for sources."
+        "docs/REFERENCES.md</a> for sources."
         "<br>"
         "App version: see <a href='https://github.com/nicofirst1/immokalkul/commits/main' "
         "target='_blank' style='color: #4E79A7; text-decoration: none;'>git "

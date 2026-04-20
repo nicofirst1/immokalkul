@@ -223,7 +223,7 @@ The `result` object has `.cashflow`, `.amort`, `.tax`, `.cost_lines`, `.purchase
 
 All German constants live in `immokalkul/rules_de.py` with citations. When a tax law changes, that's the only file to touch.
 
-For the full bibliography of sources consulted (AfA, Petersche Formel, component lifecycles, Bodenrichtwert, etc.) with a reliability ranking and caveats, see [REFERENCES.md](REFERENCES.md).
+For the full bibliography of sources consulted (AfA, Petersche Formel, component lifecycles, Bodenrichtwert, etc.) with a reliability ranking and caveats, see [docs/REFERENCES.md](docs/REFERENCES.md).
 
 ---
 
