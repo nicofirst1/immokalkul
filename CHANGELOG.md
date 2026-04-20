@@ -7,6 +7,22 @@ All notable changes to **immokalkul** are documented here. Format based on
 Minor versions correspond to audit cycles — each audit report and its
 actionable-items list live in [`docs/audits/`](docs/audits/).
 
+## [1.6.4] — 2026-04-20
+
+**Human UX audit v1 — complex item [C7].** Splits the bundled Notar + Grundbuch fee into two per-scenario-overridable rates.
+
+### Added
+- `Financing.notary_pct` / `Financing.grundbuch_pct` optional overrides (default `None` → fall back to `rules_de.NOTARY_FEE` / `GRUNDBUCH_FEE`)
+- `PurchaseCostBreakdown.notary_fee` + `grundbuch_fee` as separate floats; convenience `notary_grundbuch` property preserves the bundled figure
+- `compute_purchase_costs` accepts separate `notary_rate` + `grundbuch_rate` kwargs
+- Sidebar **"🔧 Advanced: closing-fee rates"** collapsed expander under Financing — two `st.number_input` widgets, saved as overrides only when the user moves away from defaults
+- Tests: default split matches `rules_de` and sums to the legacy 2 %; explicit overrides flow through to AfA basis
+
+### Changed
+- Summary purchase-costs table splits the single "Notary + land registry (~2 %)" row into "Notary (Notar, ~1.5 %)" and "Land registry (Grundbuch, ~0.5 %)"
+- "What are these fees?" explainer now covers Notar and Grundbuch separately and points at the Advanced override
+- `APP_VERSION` bumped to 1.6.4
+
 ## [1.6.3] — 2026-04-20
 
 **Human UX audit v1 — complex item [C6].** Capex editor no longer hard-crashes on partially-filled rows.

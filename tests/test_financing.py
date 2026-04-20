@@ -72,6 +72,39 @@ def test_purchase_cost_components_add_up() -> None:
     )
 
 
+def test_notary_grundbuch_default_split_matches_rules_de() -> None:
+    """Default Notar + Grundbuch rates must match rules_de and sum to the
+    legacy bundled 2 % figure — guarantees numeric stability when the
+    split was introduced in [C7]."""
+    from immokalkul import rules_de
+    s = make_scenario(price=400_000)
+    pc = compute_purchase_costs(s.property)
+    assert pc.notary_fee == pytest.approx(400_000 * rules_de.NOTARY_FEE)
+    assert pc.grundbuch_fee == pytest.approx(400_000 * rules_de.GRUNDBUCH_FEE)
+    # Backward-compat property keeps the bundled number available.
+    assert pc.notary_grundbuch == pytest.approx(
+        pc.notary_fee + pc.grundbuch_fee)
+    # Sum still equals the legacy combined 2 % of price.
+    assert pc.notary_grundbuch == pytest.approx(400_000 * 0.02, abs=1.0)
+
+
+def test_notary_grundbuch_overrides_are_honoured() -> None:
+    """Explicit notary_rate / grundbuch_rate kwargs must flow through to
+    the breakdown — the mechanism the sidebar Advanced expander uses."""
+    s = make_scenario(price=500_000)
+    pc = compute_purchase_costs(s.property,
+                                 notary_rate=0.018,
+                                 grundbuch_rate=0.007)
+    assert pc.notary_fee == pytest.approx(500_000 * 0.018)
+    assert pc.grundbuch_fee == pytest.approx(500_000 * 0.007)
+    # AfA-capitalizable portion uses 80 % of the combined Notar + Grundbuch.
+    from immokalkul import rules_de
+    expected_afa = (pc.grunderwerbsteuer + pc.maklerprovision
+                    + (pc.notary_fee + pc.grundbuch_fee)
+                      * rules_de.NOTARY_GRUNDBUCH_AFA_SHARE)
+    assert pc.fees_capitalizable_for_afa == pytest.approx(expected_afa)
+
+
 def test_all_debt_clears_within_horizon_for_small_loans() -> None:
     """A small loan with a high monthly payment must clear before horizon's
     end — a sanity check on the amortization loop."""

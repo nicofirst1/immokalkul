@@ -6,6 +6,7 @@ Returns one DataFrame with the full picture for visualization.
 from __future__ import annotations
 from dataclasses import dataclass
 import pandas as pd
+from . import rules_de
 from .models import Scenario
 from .financing import (compute_purchase_costs, amortization_schedule,
                           all_debt_clear_year, estimate_building_share)
@@ -41,7 +42,16 @@ def run(scenario: Scenario) -> ScenarioResult:
     s = scenario
     _validate(s)
     # 1. Purchase costs & financing
-    purchase = compute_purchase_costs(s.property, renovation_capitalized=0.0)
+    purchase = compute_purchase_costs(
+        s.property,
+        renovation_capitalized=0.0,
+        notary_rate=(s.financing.notary_pct
+                     if s.financing.notary_pct is not None
+                     else rules_de.NOTARY_FEE),
+        grundbuch_rate=(s.financing.grundbuch_pct
+                        if s.financing.grundbuch_pct is not None
+                        else rules_de.GRUNDBUCH_FEE),
+    )
 
     # 2. Amortization
     amort = amortization_schedule(s.financing, s.globals.horizon_years)

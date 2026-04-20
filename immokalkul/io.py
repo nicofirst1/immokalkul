@@ -33,6 +33,8 @@ def load_scenario(path: str | Path) -> Scenario:
         debt_budget_monthly=d["financing"].get("debt_budget_monthly", 1745.0),
         monthly_total_housing_budget_eur=d["financing"].get(
             "monthly_total_housing_budget_eur", 0.0),
+        notary_pct=d["financing"].get("notary_pct"),
+        grundbuch_pct=d["financing"].get("grundbuch_pct"),
     )
     costs = CostInputs(**d["costs"])
     rent = RentParameters(**d["rent"])
@@ -63,6 +65,8 @@ def save_scenario(scenario: Scenario, path: str | Path) -> None:
             "debt_budget_monthly": scenario.financing.debt_budget_monthly,
             "monthly_total_housing_budget_eur":
                 scenario.financing.monthly_total_housing_budget_eur,
+            "notary_pct": scenario.financing.notary_pct,
+            "grundbuch_pct": scenario.financing.grundbuch_pct,
             "loans": [_asdict(l) for l in scenario.financing.loans],
         },
         "costs": _asdict(scenario.costs),

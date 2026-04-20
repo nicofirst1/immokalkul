@@ -77,6 +77,13 @@ class Financing:
                                            # affordability check — does NOT
                                            # drive the engine. 0 = unset / no
                                            # check.
+    notary_pct: Optional[float] = None     # override for the Notar (GNotKG)
+                                           # rate as a fraction of price. None
+                                           # → fall back to rules_de.NOTARY_FEE
+                                           # (~1.5 %).
+    grundbuch_pct: Optional[float] = None  # override for the Grundbuch (land-
+                                           # registry) rate. None → fall back
+                                           # to rules_de.GRUNDBUCH_FEE (~0.5 %).
 
 
 @dataclass

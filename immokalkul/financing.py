@@ -19,29 +19,40 @@ class PurchaseCostBreakdown:
     purchase_price: float
     grunderwerbsteuer: float
     maklerprovision: float
-    notary_grundbuch: float
+    notary_fee: float               # Notar (GNotKG schedule, ~1.5 %)
+    grundbuch_fee: float            # Grundbuch (land registry, ~0.5 %)
     renovation_capitalized: float
-    fees_subtotal: float            # all of the above except price + reno
-    fees_capitalizable_for_afa: float  # Grunderwerb + Makler + 80% Notar
+    fees_subtotal: float            # all fees above, excl. price + reno
+    fees_capitalizable_for_afa: float  # Grunderwerb + Makler + 80 % of (Notar + Grundbuch)
     total_cost: float               # everything
+
+    @property
+    def notary_grundbuch(self) -> float:
+        """Combined Notar + Grundbuch — kept as a convenience for callers
+        that display the bundled figure."""
+        return self.notary_fee + self.grundbuch_fee
 
 
 def compute_purchase_costs(p: Property, renovation_capitalized: float = 0.0,
                             grunderwerbsteuer_rate: float = rules_de.GRUNDERWERBSTEUER_NRW,
                             makler_rate: float = rules_de.MAKLERPROVISION_TYPICAL,
-                            notary_rate: float = rules_de.NOTARY_AND_GRUNDBUCH
+                            notary_rate: float = rules_de.NOTARY_FEE,
+                            grundbuch_rate: float = rules_de.GRUNDBUCH_FEE,
                             ) -> PurchaseCostBreakdown:
     price = p.purchase_price
     grunderwerb = price * grunderwerbsteuer_rate
     makler = price * makler_rate
     notary = price * notary_rate
-    fees = grunderwerb + makler + notary
-    afa_fees = grunderwerb + makler + notary * rules_de.NOTARY_GRUNDBUCH_AFA_SHARE
+    grundbuch = price * grundbuch_rate
+    fees = grunderwerb + makler + notary + grundbuch
+    afa_fees = (grunderwerb + makler
+                + (notary + grundbuch) * rules_de.NOTARY_GRUNDBUCH_AFA_SHARE)
     return PurchaseCostBreakdown(
         purchase_price=price,
         grunderwerbsteuer=grunderwerb,
         maklerprovision=makler,
-        notary_grundbuch=notary,
+        notary_fee=notary,
+        grundbuch_fee=grundbuch,
         renovation_capitalized=renovation_capitalized,
         fees_subtotal=fees,
         fees_capitalizable_for_afa=afa_fees,

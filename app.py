@@ -40,7 +40,7 @@ st.set_page_config(
 DATA_DIR = Path(__file__).parent / "data"
 DEFAULT_SCENARIO = DATA_DIR / "bonn_poppelsdorf.yaml"
 
-APP_VERSION = "1.6.3"
+APP_VERSION = "1.6.4"
 
 
 @st.cache_data(show_spinner=False)
@@ -378,6 +378,45 @@ def sidebar_inputs():
                      "on Summary when total housing spend exceeds it. "
                      "Set to **0** to disable the check.")
 
+            with st.expander("🔧 Advanced: closing-fee rates", expanded=False):
+                st.caption(
+                    "Overrides for *Notar* + *Grundbuch*. Leave at the "
+                    "defaults unless your closing statement shows a "
+                    "different split. Rates apply as a fraction of "
+                    "purchase price.")
+                from immokalkul import rules_de as _rules_de_for_advanced
+                notary_default = _rules_de_for_advanced.NOTARY_FEE * 100
+                grundbuch_default = _rules_de_for_advanced.GRUNDBUCH_FEE * 100
+                notary_cur = (s.financing.notary_pct * 100
+                              if s.financing.notary_pct is not None
+                              else notary_default)
+                grundbuch_cur = (s.financing.grundbuch_pct * 100
+                                  if s.financing.grundbuch_pct is not None
+                                  else grundbuch_default)
+                new_notary = st.number_input(
+                    f"Notar rate (%) — default {notary_default:.2f}%",
+                    value=float(notary_cur), step=0.05, format="%.2f",
+                    min_value=0.0, max_value=5.0,
+                    help="Notary fees follow the GNotKG schedule. The "
+                         "~1.5 % figure is a price-weighted average; "
+                         "small properties skew higher, large ones "
+                         "lower.")
+                new_grundbuch = st.number_input(
+                    f"Grundbuch rate (%) — default {grundbuch_default:.2f}%",
+                    value=float(grundbuch_cur), step=0.05, format="%.2f",
+                    min_value=0.0, max_value=3.0,
+                    help="Land-registry fees for ownership transfer "
+                         "(Auflassung) and any Grundschuld entry. "
+                         "Typically 0.3 – 0.8 % depending on whether "
+                         "the purchase is leveraged.")
+                # Persist as override only if the user moved away from defaults.
+                s.financing.notary_pct = (new_notary / 100
+                                           if abs(new_notary - notary_default) > 1e-6
+                                           else None)
+                s.financing.grundbuch_pct = (new_grundbuch / 100
+                                              if abs(new_grundbuch - grundbuch_default) > 1e-6
+                                              else None)
+
             st.markdown("**Loans** — one row per tranche. Add / remove rows freely.")
             if st.button("↺ Reset loans to scenario defaults", key="reset_loans"):
                 s.financing.loans = deepcopy(
@@ -437,8 +476,17 @@ def sidebar_inputs():
 
             # Helper note on bank principal
             from immokalkul.financing import compute_purchase_costs
+            from immokalkul import rules_de as _rules_de
             try:
-                pc = compute_purchase_costs(s.property)
+                pc = compute_purchase_costs(
+                    s.property,
+                    notary_rate=(s.financing.notary_pct
+                                 if s.financing.notary_pct is not None
+                                 else _rules_de.NOTARY_FEE),
+                    grundbuch_rate=(s.financing.grundbuch_pct
+                                     if s.financing.grundbuch_pct is not None
+                                     else _rules_de.GRUNDBUCH_FEE),
+                )
                 residual = pc.total_cost - s.financing.initial_capital
                 st.caption(f"💡 Suggested Bank principal "
                            f"(total cost − initial capital): **{eur(residual)}**")
@@ -1071,7 +1119,8 @@ def tab_summary(result, s: Scenario, afford: dict):
                 ("Purchase price", p.purchase_price),
                 ("Property transfer tax (Grunderwerbsteuer, 6.5% NRW)", p.grunderwerbsteuer),
                 ("Agent fee (Maklerprovision, ~3.57% buyer share)", p.maklerprovision),
-                ("Notary + land registry (Notar + Grundbuch, ~2%)", p.notary_grundbuch),
+                ("Notary (Notar, ~1.5%)", p.notary_fee),
+                ("Land registry (Grundbuch, ~0.5%)", p.grundbuch_fee),
                 ("Initial renovation (capitalized, AfA)", p.renovation_capitalized),
                 ("Total", p.total_cost),
             ], columns=["Item", "Amount (€)"])
@@ -1091,9 +1140,14 @@ def tab_summary(result, s: Scenario, afford: dict):
                     "state, not deductible.\n"
                     "- **Maklerprovision** — estate-agent commission. Since "
                     "2020 the buyer covers ~half (~3.57% incl. VAT in NRW).\n"
-                    "- **Notar + Grundbuch** — notary and land-registry "
-                    "fees. Legally required for any property transfer; "
-                    "roughly 2% of price combined.\n"
+                    "- **Notar (notary)** — the notary is legally required "
+                    "to authenticate the sale and register the Auflassung. "
+                    "Fees follow the GNotKG schedule (≈ 1.5 % of price).\n"
+                    "- **Grundbuch (land registry)** — fees charged by the "
+                    "Grundbuchamt to record ownership transfer and any "
+                    "Grundschuld. Typically ≈ 0.5 % of price. You can "
+                    "override both rates in **Financing → Advanced** if your "
+                    "closing statement differs.\n"
                     "- **Initial renovation** — major work in the first 3 "
                     "years may be treated as *Herstellungskosten* (added to "
                     "the AfA basis and depreciated) rather than immediately "
