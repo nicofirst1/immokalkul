@@ -40,7 +40,7 @@ st.set_page_config(
 DATA_DIR = Path(__file__).parent / "data"
 DEFAULT_SCENARIO = DATA_DIR / "bonn_poppelsdorf.yaml"
 
-APP_VERSION = "1.7.3"
+APP_VERSION = "1.7.4"
 
 
 @st.cache_data(show_spinner=False)
@@ -1984,6 +1984,9 @@ def tab_getting_started():
         "no uploads, and no downloads are logged or sent anywhere beyond the "
         "Streamlit process serving this page. The code contains no telemetry."
     )
+    st.caption("📖 **Hit a German term you don't recognise?** Jump to the "
+               "**💬 Glossary** tab — every term used anywhere in the app "
+               "is defined there in plain English, with an A–Z index.")
 
     st.markdown("### 3-step walkthrough")
     st.markdown(WALKTHROUGH_MD)
@@ -2137,90 +2140,8 @@ def tab_getting_started():
             "the building value."
         )
 
-    with st.expander("📖 Glossary of German terms (A–Z)", expanded=False):
-        st.markdown(
-            "| Term | Plain meaning |\n"
-            "| --- | --- |\n"
-            "| AfA *(Absetzung für Abnutzung)* | Literally *write-off for "
-            "wear*. Linear depreciation of the building over 40 / 50 / 33⅓ "
-            "years. Available only in rent mode. |\n"
-            "| Annuitätendarlehen | Loan with a constant monthly payment; "
-            "interest portion shrinks, principal portion grows. The typical "
-            "German mortgage structure. |\n"
-            "| Anschaffungsnaher Aufwand | Literally *expenditure close to "
-            "acquisition*. Renovations in the first 3 years exceeding 15% of "
-            "building value get reclassified from expense to capital spend "
-            "(§ 6 Abs. 1 Nr. 1a EStG). |\n"
-            "| Bausparvertrag (LBS) | Savings-plus-loan hybrid. Fixed monthly "
-            "payment on both sides. |\n"
-            "| Betriebskostenabrechnung | Annual reconciliation of utility "
-            "costs between landlord and tenant. |\n"
-            "| Bodenrichtwert | Official land value per m² in your area. "
-            "Look up on BORIS NRW (or your state's equivalent). |\n"
-            "| Denkmal | Listed building. Qualifies for special AfA (§ 7i "
-            "EStG, not yet modelled here). |\n"
-            "| Energieausweis | Legally required energy-efficiency "
-            "certificate. Gives the kWh/m²/yr figure. |\n"
-            "| Erhaltungsaufwand | Literally *preservation expenditure*. "
-            "Ordinary maintenance — immediately deductible in rent mode. |\n"
-            "| Erhaltungsrücklage | WEG maintenance reserve (§ 19 WEG, post-"
-            "2020 rename of *Instandhaltungsrücklage*). Funded out of your "
-            "Hausgeld; pays for shared-area capex. |\n"
-            "| Finanzierungszusage | Written bank commitment to fund the "
-            "loan at stated terms. Ask for this early. |\n"
-            "| Gemeinschaftseigentum | Shared portions of a WEG building "
-            "(roof, façade, stairs). Covered by Hausgeld. |\n"
-            "| Grenzsteuersatz | Marginal income-tax rate — applies to each "
-            "extra euro of income. |\n"
-            "| Grundbuch | Land registry. Ownership and encumbrances are "
-            "recorded here; updates cost ~0.5% of price. |\n"
-            "| Grundschuld | Land-charge registered against the property as "
-            "bank collateral. Standard for German mortgages; you'll meet it "
-            "at the notary. |\n"
-            "| Grunderwerbsteuer | One-off property-transfer tax. 6.5% in "
-            "NRW; 3.5–6.5% elsewhere. |\n"
-            "| Grundsteuer | Annual property tax paid to the Kommune. "
-            "Typically 0.15–0.35% of price post-2025 reform. |\n"
-            "| Hausgeld | Monthly WEG fee for common-area costs, admin, "
-            "shared insurance — for apartments only. |\n"
-            "| Hausverwaltung | Property management company. 4–8% of gross "
-            "rent typical. |\n"
-            "| Herstellungskosten | Literally *production costs*. Capital "
-            "spend that adds to the AfA basis and is depreciated over the "
-            "building's useful life. |\n"
-            "| Kaltmiete | Net cold rent — rent only, no utilities. |\n"
-            "| Kernsanierung | Full-gut renovation. Resets component-"
-            "lifecycle clocks. |\n"
-            "| Kirchensteuer | Church tax, 8–9% of income tax for registered "
-            "members. Not modelled here. |\n"
-            "| Kommune | Municipality. Sets the Grundsteuer Hebesatz. |\n"
-            "| Maklerprovision | Estate-agent commission. Since 2020 the "
-            "buyer covers ~3.57% in most Bundesländer. |\n"
-            "| Mietpreisbremse | Rent cap in tight markets — limits new "
-            "leases to ~10% above local Mietspiegel. |\n"
-            "| Mietspiegel | Official city rent-comparison table. |\n"
-            "| Nebenkosten | Warm-side utilities (heating, water, etc.) on "
-            "top of Kaltmiete. Nebenkosten + Kaltmiete = Warmmiete. |\n"
-            "| Notar | Notary. German property transfers require a notarised "
-            "deed; fees ~1.5% of price. |\n"
-            "| Petersche Formel | 1984 formula for the maintenance reserve: "
-            "`(build cost/m² × 1.5) / 80 × 0.7`. |\n"
-            "| Sanierungspflicht | Energy-renovation obligation under GEG "
-            "(heating, insulation, windows). Especially relevant for Altbau "
-            "buyers post-2024. |\n"
-            "| Sondereigentum | Your private apartment unit inside a WEG "
-            "(vs. Gemeinschaftseigentum). |\n"
-            "| Sonderumlage | Special one-off WEG assessment when the reserve "
-            "isn't enough. |\n"
-            "| Solidaritätszuschlag (Soli) | 5.5% surcharge on income tax for "
-            "high earners. Folded into the marginal-rate input. |\n"
-            "| Steuerberater | Tax advisor. Required reading for anything "
-            "sensitive to §7 or §6 EStG interpretation. |\n"
-            "| Tilgung | Repayment rate on an annuity loan — the % of "
-            "principal you pay down per year at the start. |\n"
-            "| Warmmiete | All-in rent: Kaltmiete + Nebenkosten. |\n"
-            "| WEG *(Wohnungseigentümergemeinschaft)* | Owners' association "
-            "for an apartment building. |\n")
+    st.caption("German terms are collected in the **💬 Glossary** tab — "
+               "one click to the top of the tab strip.")
 
     st.markdown("### What to read after this")
     st.markdown(
@@ -2231,7 +2152,8 @@ def tab_getting_started():
         "- **🏦 Debt** — stacked balance chart; see how each loan amortizes.\n"
         "- **🧾 Tax** (rent mode only) — AfA, deductions, taxable income.\n"
         "- **📚 Methodology** — citations and the rules encoded in "
-        "`immokalkul/rules_de.py`."
+        "`immokalkul/rules_de.py`.\n"
+        "- **💬 Glossary** — A–Z of every German term used in the app."
     )
 
 
@@ -2244,6 +2166,8 @@ def tab_methodology():
         "[NOT modelled](#what-this-tool-does-not-model) · "
         "[Citations](#citations)"
     )
+    st.caption("German terms used below are defined in the "
+               "**💬 Glossary** tab (A–Z).")
     st.markdown("""
 This tool computes German property finance for both **live** (owner-occupied) and **rent** (buy-to-let) modes from a single scenario.
 
@@ -2464,6 +2388,7 @@ def main():
         "🔨 Capex",
         "🧾 Tax",
         "📚 Methodology",
+        "💬 Glossary",
     ])
     with tabs[0]: tab_summary(result_current, s, afford)
     with tabs[1]: tab_getting_started()
@@ -2474,8 +2399,198 @@ def main():
     with tabs[6]: tab_capex(result_current, s)
     with tabs[7]: tab_tax(result_current, s)
     with tabs[8]: tab_methodology()
+    with tabs[9]: tab_glossary()
 
     _render_footer()
+
+
+GLOSSARY_TERMS: list[tuple[str, str, str]] = [
+    # (anchor slug, display label, definition)
+    ("afa",
+     "AfA *(Absetzung für Abnutzung)*",
+     "Literally *write-off for wear*. Linear depreciation of the building "
+     "over 40 / 50 / 33⅓ years. Available only in rent mode."),
+    ("annuitaetendarlehen",
+     "Annuitätendarlehen",
+     "Loan with a constant monthly payment; interest portion shrinks, "
+     "principal portion grows. The typical German mortgage structure."),
+    ("anschaffungsnaher-aufwand",
+     "Anschaffungsnaher Aufwand",
+     "Literally *expenditure close to acquisition*. Renovations in the "
+     "first 3 years exceeding 15 % of building value get reclassified from "
+     "expense to capital spend (§ 6 Abs. 1 Nr. 1a EStG)."),
+    ("bausparvertrag",
+     "Bausparvertrag (LBS)",
+     "Savings-plus-loan hybrid. Fixed monthly payment on both sides."),
+    ("betriebskostenabrechnung",
+     "Betriebskostenabrechnung",
+     "Annual reconciliation of utility costs between landlord and tenant."),
+    ("bodenrichtwert",
+     "Bodenrichtwert",
+     "Official land value per m² in your area. Look up on BORIS NRW (or "
+     "your state's equivalent)."),
+    ("denkmal",
+     "Denkmal",
+     "Listed building. Qualifies for special AfA (§ 7i EStG, not yet "
+     "modelled here)."),
+    ("energieausweis",
+     "Energieausweis",
+     "Legally required energy-efficiency certificate. Gives the kWh/m²/yr "
+     "figure."),
+    ("erhaltungsaufwand",
+     "Erhaltungsaufwand",
+     "Literally *preservation expenditure*. Ordinary maintenance — "
+     "immediately deductible in rent mode."),
+    ("erhaltungsruecklage",
+     "Erhaltungsrücklage",
+     "WEG maintenance reserve (§ 19 WEG, post-2020 rename of "
+     "*Instandhaltungsrücklage*). Funded out of your Hausgeld; pays for "
+     "shared-area capex."),
+    ("finanzierungszusage",
+     "Finanzierungszusage",
+     "Written bank commitment to fund the loan at stated terms. Ask for "
+     "this early."),
+    ("gemeinschaftseigentum",
+     "Gemeinschaftseigentum",
+     "Shared portions of a WEG building (roof, façade, stairs). Covered "
+     "by Hausgeld."),
+    ("grenzsteuersatz",
+     "Grenzsteuersatz",
+     "Marginal income-tax rate — applies to each extra euro of income."),
+    ("grundbuch",
+     "Grundbuch",
+     "Land registry. Ownership and encumbrances are recorded here; "
+     "updates cost ~0.5 % of price."),
+    ("grundschuld",
+     "Grundschuld",
+     "Land-charge registered against the property as bank collateral. "
+     "Standard for German mortgages; you'll meet it at the notary."),
+    ("grunderwerbsteuer",
+     "Grunderwerbsteuer",
+     "One-off property-transfer tax. 6.5 % in NRW; 3.5–6.5 % elsewhere."),
+    ("grundsteuer",
+     "Grundsteuer",
+     "Annual property tax paid to the Kommune. Typically 0.15–0.35 % of "
+     "price post-2025 reform."),
+    ("hausgeld",
+     "Hausgeld",
+     "Monthly WEG fee for common-area costs, admin, shared insurance — "
+     "for apartments only."),
+    ("hausverwaltung",
+     "Hausverwaltung",
+     "Property management company. 4–8 % of gross rent typical."),
+    ("herstellungskosten",
+     "Herstellungskosten",
+     "Literally *production costs*. Capital spend that adds to the AfA "
+     "basis and is depreciated over the building's useful life."),
+    ("kaltmiete",
+     "Kaltmiete",
+     "Net cold rent — rent only, no utilities."),
+    ("kernsanierung",
+     "Kernsanierung",
+     "Full-gut renovation. Resets component-lifecycle clocks."),
+    ("kirchensteuer",
+     "Kirchensteuer",
+     "Church tax, 8–9 % of income tax for registered members. Not "
+     "modelled here."),
+    ("kommune",
+     "Kommune",
+     "Municipality. Sets the Grundsteuer Hebesatz."),
+    ("maklerprovision",
+     "Maklerprovision",
+     "Estate-agent commission. Since 2020 the buyer covers ~3.57 % in "
+     "most Bundesländer."),
+    ("mietpreisbremse",
+     "Mietpreisbremse",
+     "Rent cap in tight markets — limits new leases to ~10 % above local "
+     "Mietspiegel."),
+    ("mietspiegel",
+     "Mietspiegel",
+     "Official city rent-comparison table."),
+    ("nebenkosten",
+     "Nebenkosten",
+     "Warm-side utilities (heating, water, etc.) on top of Kaltmiete. "
+     "Nebenkosten + Kaltmiete = Warmmiete."),
+    ("notar",
+     "Notar",
+     "Notary. German property transfers require a notarised deed; fees "
+     "~1.5 % of price."),
+    ("petersche-formel",
+     "Petersche Formel",
+     "1984 formula for the maintenance reserve: "
+     "`(build cost/m² × 1.5) / 80 × 0.7`."),
+    ("sanierungspflicht",
+     "Sanierungspflicht",
+     "Energy-renovation obligation under GEG (heating, insulation, "
+     "windows). Especially relevant for Altbau buyers post-2024."),
+    ("sondereigentum",
+     "Sondereigentum",
+     "Your private apartment unit inside a WEG (vs. Gemeinschaftseigentum)."),
+    ("sonderumlage",
+     "Sonderumlage",
+     "Special one-off WEG assessment when the reserve isn't enough."),
+    ("solidaritaetszuschlag",
+     "Solidaritätszuschlag (Soli)",
+     "5.5 % surcharge on income tax for high earners. Folded into the "
+     "marginal-rate input."),
+    ("steuerberater",
+     "Steuerberater",
+     "Tax advisor. Required reading for anything sensitive to §7 or §6 "
+     "EStG interpretation."),
+    ("tilgung",
+     "Tilgung",
+     "Repayment rate on an annuity loan — the % of principal you pay "
+     "down per year at the start."),
+    ("warmmiete",
+     "Warmmiete",
+     "All-in rent: Kaltmiete + Nebenkosten."),
+    ("weg",
+     "WEG *(Wohnungseigentümergemeinschaft)*",
+     "Owners' association for an apartment building."),
+    ("werbungskosten",
+     "Werbungskosten",
+     "Income-related expenses deductible against rental income — "
+     "interest, operating costs, maintenance, management fees, AfA."),
+]
+
+
+def tab_glossary() -> None:
+    """Dedicated glossary tab — A-Z index + anchored term list.
+
+    Intra-tab markdown anchors (`<a id="...">` + `[link](#...)`) work
+    reliably inside a single Streamlit tab. Cross-tab anchors do not,
+    which is why the glossary lives in its own tab rather than linked
+    from Methodology / Getting-started."""
+    st.markdown("## 💬 Glossary of German terms")
+    st.caption(
+        "Every German term that shows up in the sidebar, tooltips, or "
+        "tables is defined here in plain English. Click a letter to jump; "
+        "click the ↑ next to any term to come back up.")
+
+    # A-Z jump index. Groups by first letter; letters without any term
+    # are skipped so the index stays tight.
+    by_letter: dict[str, list[tuple[str, str, str]]] = {}
+    for slug, label, _ in GLOSSARY_TERMS:
+        letter = label[0].upper()
+        by_letter.setdefault(letter, []).append((slug, label, _))
+    az_links = [
+        f"[{letter}](#glossary-letter-{letter.lower()})"
+        for letter in sorted(by_letter.keys())
+    ]
+    st.markdown(" · ".join(az_links))
+
+    # Render each letter section with a letter anchor + all terms under it.
+    md_lines: list[str] = []
+    for letter in sorted(by_letter.keys()):
+        md_lines.append(
+            f'<a id="glossary-letter-{letter.lower()}"></a>')
+        md_lines.append(f"### {letter}")
+        for slug, label, definition in by_letter[letter]:
+            md_lines.append(f'<a id="glossary-{slug}"></a>')
+            md_lines.append(f"**{label}** — {definition} "
+                             "[↑ back to top](#glossary-of-german-terms)")
+            md_lines.append("")  # blank line between terms
+    st.markdown("\n".join(md_lines), unsafe_allow_html=True)
 
 
 def _render_footer():

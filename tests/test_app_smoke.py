@@ -81,6 +81,19 @@ def test_app_renders_each_sample_scenario(yaml_name: str) -> None:
         f"{yaml_name}: only {len(at.tabs)} tabs rendered")
 
 
+def test_glossary_tab_is_present() -> None:
+    """Audit v1 [C8]: the dedicated '💬 Glossary' tab must appear in the
+    tab strip and render without crash."""
+    at = _fresh_apptest()
+    scenario = load_scenario(DATA_DIR / "bonn_poppelsdorf.yaml")
+    _seed_scenario(at, scenario, source="bonn_poppelsdorf")
+    at.run()
+    _assert_no_crash(at, "glossary tab presence")
+    tab_labels = [t.label for t in at.tabs]
+    assert any("Glossary" in lbl for lbl in tab_labels), (
+        f"Glossary tab missing from strip: {tab_labels}")
+
+
 def test_app_survives_mode_toggle() -> None:
     """Flipping the mode radio must not crash — regression guard for
     the [C1] widget-generation fix."""

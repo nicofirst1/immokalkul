@@ -7,6 +7,29 @@ All notable changes to **immokalkul** are documented here. Format based on
 Minor versions correspond to audit cycles — each audit report and its
 actionable-items list live in [`docs/audits/`](docs/audits/).
 
+## [1.7.4] — 2026-04-20
+
+**Human UX audit v1 — complex item [C8].** Dedicated Glossary tab with A–Z index and anchored terms.
+
+### Added
+- New **💬 Glossary** tab at the end of the tab strip — every German term used in the app, grouped A–Z with intra-tab anchors and a back-to-top link on each entry
+- Top-of-page A–Z letter index (`A · B · C · …`) that jumps to each letter section
+- `GLOSSARY_TERMS` structured list at module level so the term catalogue has a single source of truth
+- `test_glossary_tab_is_present` AppTest smoke confirming the tab label is in the strip and the tab renders without crash
+- Pointers: callout at the top of Getting-started, entry in "What to read after this", caption at the top of Methodology — all direct users to the Glossary tab (textual, not clickable — cross-tab anchor navigation is unreliable in Streamlit)
+
+### Changed
+- Glossary table removed from inside Getting-started (it now lives in its own tab); Getting-started carries a short caption pointing at it
+- `APP_VERSION` bumped to 1.7.4
+
+### Design note
+The original `complex.md` plan proposed cross-tab markdown anchor links (`[WEG](#glossary-weg)`). Verified infeasible in Streamlit 1.56:
+- BaseWeb's `StyledTabPanel` renders inactive panels with the HTML `hidden` attribute (≡ `display: none`); `scrollIntoView` on nodes inside a hidden subtree is a no-op per MDN.
+- Streamlit maintainers closed the canonical request (streamlit/streamlit#5321 "Link to tabs via # anchors") as WONTFIX with reasoning "anchors are usually used for headers, not tabs".
+- No supported programmatic tab-activation API exists yet (tracked in streamlit/streamlit#6004).
+
+A JS shim clicking private `[data-baseweb="tab"]` selectors is possible but relies on undocumented DOM internals. Dedicated tab + intra-tab anchors delivers the core goal (users can look up any term) without the fragility.
+
 ## [1.7.3] — 2026-04-20
 
 **Human UX audit v1 — complex item [C5].** AfA now stops at the statutory useful life instead of running through the full horizon.
