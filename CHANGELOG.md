@@ -7,6 +7,18 @@ All notable changes to **immokalkul** are documented here. Format based on
 Minor versions correspond to audit cycles — each audit report and its
 actionable-items list live in [`docs/audits/`](docs/audits/).
 
+## [1.7.0] — 2026-04-20
+
+**Human UX audit v1 — complex item [C1].** Fixes a systemic stale-widget bug that affected every sidebar input.
+
+### Fixed
+- Sidebar widgets (all 46 of them) were silently overriding programmatic scenario writes. Every scenario load / reset quietly reverted most fields to whatever the widget cache last held. The mode radio and the marginal-tax-rate slider were the most visible, but all 46 inputs had the bug.
+
+### Changed
+- Every sidebar widget now uses a `wk("base_name")` key derived from a module-level `widget_generation` counter
+- Scenario-load paths ("Load selected", file uploader, "↺ Reset loans", "↺ Reset capex") bump the generation counter, invalidating every keyed widget so Streamlit re-seeds them from the fresh scenario's `value=`/`index=` kwargs
+- `APP_VERSION` bumped to 1.7.0 (minor bump — scope touches every user-facing sidebar input)
+
 ## [1.6.4] — 2026-04-20
 
 **Human UX audit v1 — complex item [C7].** Splits the bundled Notar + Grundbuch fee into two per-scenario-overridable rates.

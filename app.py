@@ -40,7 +40,7 @@ st.set_page_config(
 DATA_DIR = Path(__file__).parent / "data"
 DEFAULT_SCENARIO = DATA_DIR / "bonn_poppelsdorf.yaml"
 
-APP_VERSION = "1.6.4"
+APP_VERSION = "1.7.0"
 
 
 @st.cache_data(show_spinner=False)
@@ -65,6 +65,21 @@ def eur(x: float, decimals: int = 0) -> str:
 
 def pct(x: float, decimals: int = 1) -> str:
     return f"{x*100:.{decimals}f}%"
+
+
+# Widget keys include a generation suffix. Bumping widget_generation
+# invalidates every keyed widget so Streamlit re-seeds them from the
+# current scenario on next render. Without this, a widget's cached
+# value silently overrides any programmatic write to its backing field
+# (scenario load, reset, etc.) — see audit v1 [C1].
+def wk(base: str) -> str:
+    gen = st.session_state.get("widget_generation", 0)
+    return f"{base}__g{gen}"
+
+
+def _bump_widget_generation() -> None:
+    st.session_state.widget_generation = (
+        st.session_state.get("widget_generation", 0) + 1)
 
 
 def afa_useful_life_label(year_built: int, useful_life_years: int) -> str:
@@ -115,6 +130,8 @@ def init_scenario():
             st.session_state.scenario = _make_blank_scenario()
             st.session_state.scenario_source = "blank"
         st.session_state.scenario_original = deepcopy(st.session_state.scenario)
+    if "widget_generation" not in st.session_state:
+        st.session_state.widget_generation = 0
 
 
 def _is_scenario_modified() -> bool:
@@ -171,7 +188,8 @@ def sidebar_inputs():
                 labels = {f.stem: _scenario_label(str(f)) for f in available}
                 picked = st.selectbox(
                     "Load scenario", names, index=default_idx,
-                    format_func=lambda k: labels.get(k, k))
+                    format_func=lambda k: labels.get(k, k),
+                    key=wk("scenario_picker"))
                 desc = SCENARIO_DESCRIPTIONS.get(picked, "")
                 if desc:
                     st.caption(desc)
@@ -183,9 +201,12 @@ def sidebar_inputs():
                     st.session_state.scenario = load_scenario(DATA_DIR / f"{picked}.yaml")
                     st.session_state.scenario_original = deepcopy(st.session_state.scenario)
                     st.session_state.scenario_source = picked
+                    _bump_widget_generation()
                     st.rerun()
 
-            uploaded = st.file_uploader("Upload YAML scenario", type=["yaml", "yml"])
+            uploaded = st.file_uploader(
+                "Upload YAML scenario", type=["yaml", "yml"],
+                key=wk("yaml_uploader"))
             if uploaded:
                 tmp_path = Path("/tmp") / uploaded.name
                 tmp_path.write_bytes(uploaded.getvalue())
@@ -193,6 +214,7 @@ def sidebar_inputs():
                 st.session_state.scenario_original = deepcopy(st.session_state.scenario)
                 st.session_state.scenario_source = uploaded.name
                 st.success(f"Loaded {uploaded.name}")
+                _bump_widget_generation()
                 st.rerun()
 
             # --- Build from a listing via LLM ---
@@ -207,7 +229,7 @@ def sidebar_inputs():
                     height=100,
                     placeholder=("https://www.immobilienscout24.de/expose/..."
                                   "  — or paste the full Exposé text"),
-                    key="llm_listing_context")
+                    key=wk("llm_listing_context"))
                 st.markdown(
                     "**How to use:** copy the prompt below (📋 icon, top-"
                     "right of the code block) → paste into your LLM → save "
@@ -231,6 +253,7 @@ def sidebar_inputs():
                           index=0 if s.mode == "live" else 1,
                           horizontal=True,
                           format_func=lambda m: "Live in it" if m == "live" else "Rent it out",
+                          key=wk("mode_radio"),
                           help="Live in it: you occupy it (your costs only). "
                                "Rent it out: **buy-to-let** — you buy the "
                                "property and rent it to a tenant "
@@ -239,21 +262,26 @@ def sidebar_inputs():
 
         # --- Property ---
         with st.expander("🏘 Property", expanded=False):
-            s.property.name = st.text_input("Name", s.property.name)
+            s.property.name = st.text_input(
+                "Name", s.property.name, key=wk("property_name"))
             c1, c2 = st.columns(2)
             with c1:
                 s.property.purchase_price = st.number_input(
                     "Purchase price (€)", value=float(s.property.purchase_price),
-                    step=5000.0, format="%.0f")
+                    step=5000.0, format="%.0f",
+                    key=wk("purchase_price"))
                 s.property.living_space_m2 = st.number_input(
                     "Living space (m²)", value=float(s.property.living_space_m2),
-                    step=1.0, format="%.2f")
+                    step=1.0, format="%.2f",
+                    key=wk("living_space_m2"))
                 s.property.year_built = int(st.number_input(
                     "Year built", value=int(s.property.year_built),
-                    min_value=1700, max_value=2030, step=1))
+                    min_value=1700, max_value=2030, step=1,
+                    key=wk("year_built")))
                 s.property.plot_size_m2 = st.number_input(
                     "Plot size (m²)", value=float(s.property.plot_size_m2),
                     step=1.0, format="%.2f",
+                    key=wk("plot_size_m2"),
                     help="**WEG** = *Wohnungseigentümergemeinschaft*, the "
                          "owners' association every Eigentumswohnung belongs "
                          "to. For an apartment you enter your pro-rata share "
@@ -262,9 +290,11 @@ def sidebar_inputs():
             with c2:
                 s.property.property_type = st.selectbox(
                     "Type", ["apartment", "house"],
-                    index=0 if s.property.property_type == "apartment" else 1)
+                    index=0 if s.property.property_type == "apartment" else 1,
+                    key=wk("property_type"))
                 s.property.has_elevator = st.checkbox(
                     "Has elevator", s.property.has_elevator,
+                    key=wk("has_elevator"),
                     help="Adds +€1/m²/yr to the II. BV maintenance reserve "
                          "(service contracts + eventual renewal). Only "
                          "applies when the II. BV table beats the Petersche "
@@ -275,6 +305,7 @@ def sidebar_inputs():
                 s.property.year_last_major_renovation = int(st.number_input(
                     "Year last renovated (0 = never)",
                     value=int(lr) if lr else 0, min_value=0, max_value=2030, step=1,
+                    key=wk("year_last_renovation"),
                     help="The 4-digit calendar year of the last Kernsanierung "
                          "(e.g. **1995** if heating + bathroom + electrics "
                          "were redone in 1995). Resets the component "
@@ -285,6 +316,7 @@ def sidebar_inputs():
                     "Energy demand (kWh/m²/yr)",
                     value=float(s.property.energy_demand_kwh_per_m2_year),
                     step=5.0, format="%.0f",
+                    key=wk("energy_demand"),
                     help="From the Energieausweis. German efficiency classes "
                          "(§ 16 GEG):\n"
                          "- **A+**: < 30\n"
@@ -300,6 +332,7 @@ def sidebar_inputs():
                     "Bodenrichtwert (€/m²)",
                     value=float(s.property.bodenrichtwert_eur_per_m2 or 0),
                     step=10.0, format="%.0f",
+                    key=wk("bodenrichtwert"),
                     help="**Official land reference value (€/m²)** published "
                          "by the municipal Gutachterausschuss and refreshed "
                          "every 1–2 years. Used here to split purchase price "
@@ -311,6 +344,7 @@ def sidebar_inputs():
                          "portal. Leave 0 to use property-type defaults.") or None
                 s.property.is_denkmal = st.checkbox(
                     "Listed building (Denkmal)", s.property.is_denkmal,
+                    key=wk("is_denkmal"),
                     help="**Flag only — not yet consumed by the engine.** "
                          "Real Denkmal AfA (§ 7i / § 7h EStG): 9 %/yr in "
                          "years 1–8, then 7 %/yr in years 9–12 on the "
@@ -344,6 +378,7 @@ def sidebar_inputs():
             s.financing.initial_capital = st.number_input(
                 "Initial capital deployed (€)",
                 value=float(s.financing.initial_capital), step=5000.0, format="%.0f",
+                key=wk("initial_capital"),
                 help="Your own money at **closing** (notary signing / "
                      "Beurkundungstermin) — savings, gifts, Bauspar "
                      "payouts. No repayment. Contrast with Loans (below) = "
@@ -355,6 +390,7 @@ def sidebar_inputs():
                     "Monthly loan budget [adaptive] (€/mo, all loans)",
                     value=float(s.financing.debt_budget_monthly),
                     step=50.0, format="%.0f",
+                    key=wk("debt_budget_monthly"),
                     help="**What does this number constrain?** The total "
                          "monthly payment across all loans flagged "
                          "`[adaptive]`. Covers loan principal + interest "
@@ -367,6 +403,7 @@ def sidebar_inputs():
                 "Monthly housing ceiling [total] (€/mo) — 0 = unset",
                 value=float(s.financing.monthly_total_housing_budget_eur),
                 step=50.0, format="%.0f", min_value=0.0,
+                key=wk("housing_ceiling"),
                 help="**What does this cap?** Total monthly housing spend "
                      "— loan payments **plus** operating costs (Hausgeld, "
                      "insurance, Grundsteuer, maintenance). \n\n"
@@ -397,6 +434,7 @@ def sidebar_inputs():
                     f"Notar rate (%) — default {notary_default:.2f}%",
                     value=float(notary_cur), step=0.05, format="%.2f",
                     min_value=0.0, max_value=5.0,
+                    key=wk("notary_rate"),
                     help="Notary fees follow the GNotKG schedule. The "
                          "~1.5 % figure is a price-weighted average; "
                          "small properties skew higher, large ones "
@@ -405,6 +443,7 @@ def sidebar_inputs():
                     f"Grundbuch rate (%) — default {grundbuch_default:.2f}%",
                     value=float(grundbuch_cur), step=0.05, format="%.2f",
                     min_value=0.0, max_value=3.0,
+                    key=wk("grundbuch_rate"),
                     help="Land-registry fees for ownership transfer "
                          "(Auflassung) and any Grundschuld entry. "
                          "Typically 0.3 – 0.8 % depending on whether "
@@ -421,6 +460,7 @@ def sidebar_inputs():
             if st.button("↺ Reset loans to scenario defaults", key="reset_loans"):
                 s.financing.loans = deepcopy(
                     st.session_state.scenario_original.financing.loans)
+                _bump_widget_generation()
                 st.rerun()
             loans_df = pd.DataFrame([{
                 "Name": l.name,
@@ -431,7 +471,7 @@ def sidebar_inputs():
                 "Adaptive?": l.is_adaptive,
             } for l in s.financing.loans])
             edited = st.data_editor(
-                loans_df, num_rows="dynamic", key="loans_editor",
+                loans_df, num_rows="dynamic", key=wk("loans_editor"),
                 column_config={
                     "Principal (€)": st.column_config.NumberColumn(format="%.0f", min_value=0),
                     "Rate (%)": st.column_config.NumberColumn(format="%.3f", step=0.1, min_value=0.0),
@@ -505,18 +545,21 @@ def sidebar_inputs():
             s.rent.monthly_rent = st.number_input(
                 "Monthly rent (Kaltmiete, €)",
                 value=float(s.rent.monthly_rent), step=50.0, format="%.0f",
+                key=wk("monthly_rent"),
                 help="Net cold rent you expect to charge (Kaltmiete, no utilities). "
                      "For a realistic number, look up Mietspiegel or comparable "
                      "listings on ImmoScout24 for your postcode.")
             s.rent.monthly_parking = st.number_input(
                 "Monthly parking (€)",
                 value=float(s.rent.monthly_parking), step=10.0, format="%.0f",
+                key=wk("monthly_parking"),
                 help="Separate rent for a parking spot / Tiefgarage, if any. "
                      "Leave 0 if parking isn't part of the lease.")
             s.rent.annual_rent_escalation = st.slider(
                 "Annual rent escalation", 0.0, 5.0,
                 value=float(s.rent.annual_rent_escalation) * 100,
                 step=0.1, format="%.1f%%",
+                key=wk("annual_rent_escalation"),
                 help="Assumed yearly rent growth. German rents are capped by "
                      "Mietspiegel / Mietpreisbremse — 1.5-2.5% is typical.") / 100
             if s.rent.annual_rent_escalation * 3 > 0.10:
@@ -529,11 +572,13 @@ def sidebar_inputs():
                 "Vacancy (months/year)", 0, 6,
                 value=int(round(float(s.rent.expected_vacancy_months_per_year))),
                 step=1,
+                key=wk("vacancy_months"),
                 help="Whole months per year the flat is empty between "
                      "tenants. 0–1 = hot city, 2–3 = average, 4+ implies "
                      "renovation gaps or persistent vacancy."))
             s.rent.has_property_manager = st.checkbox(
                 "Use property manager?", s.rent.has_property_manager,
+                key=wk("has_property_manager"),
                 help="Check if you'll outsource tenant handling / rent "
                      "collection / minor repairs to a Hausverwaltung. Typical "
                      "in buy-to-let across cities; waive it if you self-manage "
@@ -543,6 +588,7 @@ def sidebar_inputs():
                     "Manager fee (% of rent)", 0.0, 10.0,
                     value=float(s.rent.property_manager_pct_of_rent) * 100,
                     step=0.1, format="%.1f%%",
+                    key=wk("manager_fee_pct"),
                     help="Monthly fee as a share of gross rent. German market "
                          "range: 4-8% for a single unit, sometimes a flat "
                          "€25-40/month instead. Fully deductible in rent mode.") / 100
@@ -554,12 +600,14 @@ def sidebar_inputs():
             s.live.people_in_household = int(st.number_input(
                 "People in household", value=int(s.live.people_in_household),
                 min_value=1, max_value=10, step=1,
+                key=wk("people_in_household"),
                 help="Drives heating and electricity consumption. Adults and "
                      "children count the same here — the model uses a per-head "
                      "kWh adjustment."))
             s.live.large_appliances = int(st.number_input(
                 "Large appliances", value=int(s.live.large_appliances),
                 min_value=0, max_value=20, step=1,
+                key=wk("large_appliances"),
                 help="Count of large electric appliances (fridge, freezer, "
                      "washer, dryer, dishwasher, oven). Proxy for electricity "
                      "base load."))
@@ -567,6 +615,7 @@ def sidebar_inputs():
                 "Current rent you pay now (warm, €/mo)",
                 value=float(s.live.current_monthly_rent_warm_eur),
                 step=50.0, format="%.0f",
+                key=wk("current_rent_warm"),
                 help="What you currently pay all-inclusive (Warmmiete + "
                      "utilities). Buying replaces this cost — the Summary "
                      "uses it to compare. Leave 0 if not relevant.")
@@ -581,15 +630,18 @@ def sidebar_inputs():
             with st.expander("⚡ Utilities", expanded=False):
                 c.gas_price_eur_per_kwh = st.number_input("Gas €/kWh",
                     value=float(c.gas_price_eur_per_kwh), step=0.01, format="%.3f",
+                    key=wk("gas_price"),
                     help="Retail gas price per kWh for heating. Typical 2024-2026 "
                          "German range: €0.10-0.14. Check your Energieversorger bill.")
                 c.electricity_price_eur_per_kwh = st.number_input("Electricity €/kWh",
                     value=float(c.electricity_price_eur_per_kwh), step=0.01, format="%.3f",
+                    key=wk("electricity_price"),
                     help="Retail electricity price per kWh. Typical 2025 German "
                          "Grundversorger rate: €0.32-0.40 (Ökostrom tariffs "
                          "€0.28-0.35). Only used in live mode for Nebenkosten.")
                 c.municipal_charges_eur_per_m2_month = st.number_input("Municipal €/m²/mo",
                     value=float(c.municipal_charges_eur_per_m2_month), step=0.05, format="%.2f",
+                    key=wk("municipal_charges"),
                     help="City-level charges: trash, water, sewage, street cleaning, "
                          "chimney sweep. Typical range: €0.40-0.80/m²/month "
                          "depending on Kommune.")
@@ -598,6 +650,7 @@ def sidebar_inputs():
                     "Grundsteuer rate (% of land value)", 0.0, 1.0,
                     value=float(c.grundsteuer_land_rate) * 100,
                     step=0.01, format="%.2f%%",
+                    key=wk("grundsteuer_rate"),
                     help="Post-2025 Bundesmodell: tax base is the "
                          "Grundstückswert (land value), not the whole price. "
                          "Engine uses Bodenrichtwert × plot when available. "
@@ -605,17 +658,20 @@ def sidebar_inputs():
                          "Hebesatz; 0.34 % is a safe default.") / 100
                 c.building_insurance_eur_per_m2_year = st.number_input("Building insurance €/m²/yr",
                     value=float(c.building_insurance_eur_per_m2_year), step=0.5, format="%.1f",
+                    key=wk("building_insurance"),
                     help="Wohngebäudeversicherung — covers fire, storm, water "
                          "damage to the building shell. Typical: €3-6 per m²/yr "
                          "depending on region and flood zone.")
                 c.liability_insurance_annual = st.number_input("Liability insurance €/yr",
                     value=float(c.liability_insurance_annual), step=10.0, format="%.0f",
+                    key=wk("liability_insurance"),
                     help="Haus- und Grundbesitzerhaftpflicht (owner's liability). "
                          "Typical: €80-200/yr. Sometimes bundled into private "
                          "liability insurance — leave 0 if already covered there.")
             with st.expander("🏘 WEG / management", expanded=False):
                 c.hausgeld_monthly_for_rent = st.number_input("Building fee (Hausgeld) — €/mo, rent mode",
                     value=float(c.hausgeld_monthly_for_rent), step=10.0, format="%.0f",
+                    key=wk("hausgeld_monthly"),
                     help="Monthly WEG fee for shared common areas. Typical: "
                          "€2.50–4.50 per m². Set 0 for a freestanding house.")
                 c.hausgeld_reserve_share = st.slider(
@@ -623,6 +679,7 @@ def sidebar_inputs():
                     0.0, 100.0,
                     value=float(c.hausgeld_reserve_share) * 100,
                     step=5.0, format="%.0f%%",
+                    key=wk("hausgeld_reserve_share"),
                     help="Share of Hausgeld funding the Erhaltungsrücklage "
                          "(§ 19 WEG). Not deductible against rental income "
                          "until actually spent on repairs. The remainder is "
@@ -630,6 +687,7 @@ def sidebar_inputs():
                          "30–50 % typical; 40 % default.") / 100
                 c.administration_monthly = st.number_input("Administration (€/mo)",
                     value=float(c.administration_monthly), step=5.0, format="%.0f",
+                    key=wk("administration_monthly"),
                     help="Verwalterhonorar or self-landlord admin costs (accounting, "
                          "Steuerberater share). Typical: €25-40/month for a single "
                          "unit. Set 0 for a freestanding house you manage yourself.")
@@ -640,6 +698,7 @@ def sidebar_inputs():
             g.monthly_household_income = st.number_input(
                 "Monthly household net income (€)",
                 value=float(g.monthly_household_income), step=100.0, format="%.0f",
+                key=wk("household_income"),
                 help="**How much does this income figure actually drive?** "
                      "It feeds the **affordability ratios** only "
                      "(loan/income, net burden/income, price/annual "
@@ -649,6 +708,7 @@ def sidebar_inputs():
             g.additional_monthly_savings = st.number_input(
                 "Other monthly savings (€)",
                 value=float(g.additional_monthly_savings), step=50.0, format="%.0f",
+                key=wk("additional_savings"),
                 help="**Why is this separate from the property cash "
                      "flow?** Because it represents savings set aside "
                      "independently of the property — it feeds the "
@@ -660,6 +720,7 @@ def sidebar_inputs():
                 "Cost inflation (annual)", 0.0, 6.0,
                 value=float(g.cost_inflation_annual) * 100,
                 step=0.1, format="%.1f%%",
+                key=wk("cost_inflation"),
                 help="Yearly escalation applied to operating costs and capex. "
                      "Default 2% = ECB target; bump to 3% if you assume the "
                      "post-2022 regime persists.") / 100
@@ -667,6 +728,7 @@ def sidebar_inputs():
                 "Marginal tax rate (Grenzsteuersatz)", 10.0, 55.0,
                 value=float(g.marginal_tax_rate) * 100,
                 step=1.0, format="%.0f%%",
+                key=wk("marginal_tax_rate"),
                 help="Blended top tax rate. Roughly 30 % at €35k, 42 % above "
                      "€68k single. **Enter the effective rate** = "
                      "Einkommensteuer × (1 + Soli + Kirchensteuer): for a "
@@ -675,6 +737,7 @@ def sidebar_inputs():
                      "a single blended number is enough.") / 100
             g.horizon_years = int(st.slider(
                 "Horizon (years)", 10, 60, value=int(g.horizon_years),
+                key=wk("horizon_years"),
                 help="How far out to project. **50 years is the convention** "
                      "for property investment (matches German AfA useful life "
                      "for 1925-2022 builds). Shorter horizons miss post-"
@@ -689,6 +752,7 @@ def sidebar_inputs():
             if st.button("↺ Reset capex to scenario defaults", key="reset_capex"):
                 s.user_capex = deepcopy(
                     st.session_state.scenario_original.user_capex)
+                _bump_widget_generation()
                 st.rerun()
             capex_df = pd.DataFrame([{
                 "Name": c.name, "Cost (€)": c.cost_eur,
@@ -699,7 +763,7 @@ def sidebar_inputs():
                     "Name": "", "Cost (€)": 0, "Year due": s.globals.today_year,
                     "Capitalized?": False}])
             edited_cx = st.data_editor(
-                capex_df, num_rows="dynamic", key="capex_editor",
+                capex_df, num_rows="dynamic", key=wk("capex_editor"),
                 column_config={
                     "Cost (€)": st.column_config.NumberColumn(format="%.0f", min_value=0),
                     "Year due": st.column_config.NumberColumn(format="%d", step=1,
@@ -733,6 +797,7 @@ def sidebar_inputs():
             s.auto_schedule_capex = st.checkbox(
                 "Auto-schedule component capex (heating, roof, etc.)",
                 s.auto_schedule_capex,
+                key=wk("auto_schedule_capex"),
                 help="Uses component lifecycle table to project replacements based on year built.")
 
 
