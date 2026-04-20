@@ -31,11 +31,16 @@ class ScenarioResult:
 
 
 def run(scenario: Scenario) -> ScenarioResult:
+    """Project a Scenario into a 50-year (configurable) annual cashflow.
+
+    Convention: every flow is aggregated **at year-end**. Loan payments,
+    rent receipts, operating costs, capex and tax are all booked once per
+    year on Dec 31. A user comparing this to a bank statement will see
+    sub-year timing differences — those are by design.
+    """
     s = scenario
+    _validate(s)
     # 1. Purchase costs & financing
-    initial_renovation = s.property.year_last_major_renovation is None and 0.0 or 0.0
-    # (initial_renovation is a separate concept from one-off capex during ownership;
-    # for now leave as 0 and use user_capex for known immediate renovations)
     purchase = compute_purchase_costs(s.property, renovation_capitalized=0.0)
 
     # 2. Amortization
@@ -137,3 +142,49 @@ def run(scenario: Scenario) -> ScenarioResult:
         auto_capex=auto, all_capex=all_capex,
         years_to_debt_free=all_debt_clear_year(amort, s.financing.loans),
     )
+
+
+def _validate(s: Scenario) -> None:
+    """Reject scenarios that would silently produce nonsense numbers.
+
+    We catch four classes of input that the engine can't meaningfully
+    project: a non-positive horizon (empty DataFrames downstream), a
+    non-positive purchase price (zero-divides ratios), zero living space
+    (zero-divides per-m² metrics), and zero/negative household income
+    (zero-divides affordability ratios).
+    """
+    if s.globals.horizon_years <= 0:
+        raise ValueError(
+            f"horizon_years must be >= 1 (got {s.globals.horizon_years})")
+    if s.property.purchase_price <= 0:
+        raise ValueError(
+            f"purchase_price must be > 0 (got {s.property.purchase_price})")
+    if s.property.living_space_m2 <= 0:
+        raise ValueError(
+            f"living_space_m2 must be > 0 (got {s.property.living_space_m2})")
+    if s.globals.monthly_household_income <= 0:
+        raise ValueError(
+            "monthly_household_income must be > 0 "
+            f"(got {s.globals.monthly_household_income})")
+    today = s.globals.today_year
+    if s.property.year_built > today:
+        import warnings
+        warnings.warn(
+            f"year_built ({s.property.year_built}) is in the future "
+            f"(today_year={today}); building age clamps to 0.",
+            stacklevel=2)
+    if (s.property.year_last_major_renovation
+            and s.property.year_last_major_renovation > today):
+        import warnings
+        warnings.warn(
+            f"year_last_major_renovation ({s.property.year_last_major_renovation}) "
+            f"is in the future (today_year={today}); renovation age clamps to 0.",
+            stacklevel=2)
+    for it in s.user_capex:
+        if it.cost_eur > s.property.purchase_price:
+            import warnings
+            warnings.warn(
+                f"Capex item {it.name!r} costs €{it.cost_eur:,.0f} — more "
+                f"than the purchase price (€{s.property.purchase_price:,.0f}). "
+                "Likely a typo; verify the input.",
+                stacklevel=2)

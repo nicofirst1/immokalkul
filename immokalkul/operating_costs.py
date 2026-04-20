@@ -77,20 +77,45 @@ def operating_costs_year_one(p: Property,
     """
     lines: list[CostLine] = []
 
-    # --- Hausgeld (rent mode, single-line) ---
+    # --- Hausgeld split (rent mode) ---
+    # § 19 WEG distinguishes the operating portion (Werbungskosten — deductible)
+    # from the Erhaltungsrücklage funding (NOT deductible until actually
+    # spent on repairs). Roughly 60/40 in typical statements; user-tunable.
+    reserve_frac = max(0.0, min(1.0, costs.hausgeld_reserve_share))
+    operating_frac = 1.0 - reserve_frac
+    hausgeld_yr = costs.hausgeld_monthly_for_rent * 12
     lines.append(CostLine(
-        "Hausgeld (WEG fee)",
-        costs.hausgeld_monthly_for_rent * 12,
+        "Hausgeld — operating portion",
+        hausgeld_yr * operating_frac,
         in_live=False, in_rent=True, deductible_in_rent=True,
-        note="Actual Hausgeld for rent mode; in live mode the build-up replaces it."
+        note=("Betriebskostenanteil; deductible per § 9 (1) EStG. Live mode "
+              "uses the cost build-up instead.")
+    ))
+    lines.append(CostLine(
+        "Hausgeld — reserve portion",
+        hausgeld_yr * reserve_frac,
+        in_live=False, in_rent=True, deductible_in_rent=False,
+        note=("Erhaltungsrücklage portion (§ 19 WEG); not deductible until "
+              "actually spent on repairs.")
     ))
 
     # --- Property tax ---
+    # Post-2025 Grundsteuerreform: tax base is the Grundstückswert (land
+    # value), not the whole purchase price. We compute land value from
+    # Bodenrichtwert × plot when available, falling back to (1 − building
+    # share) × price otherwise. Hebesatz × Steuermesszahl rolls into the
+    # `grundsteuer_land_rate` input (default ≈ 0.34 % of land value).
+    from .financing import estimate_building_share
+    if p.bodenrichtwert_eur_per_m2 is not None:
+        land_value = p.bodenrichtwert_eur_per_m2 * p.plot_size_m2
+    else:
+        land_value = p.purchase_price * (1 - estimate_building_share(p))
     lines.append(CostLine(
         "Grundsteuer B (property tax)",
-        p.purchase_price * costs.grundsteuer_rate_of_price,
+        land_value * costs.grundsteuer_land_rate,
         in_live=True, in_rent=True, deductible_in_rent=True,
-        note="Approximation; real depends on Hebesatz × Einheitswert (post-2025 reform)."
+        note=("Post-2025 Bundesmodell: land value × land_rate. Real Hebesatz "
+              "varies 0.20–0.50 % across Bundesländer + Kommunen.")
     ))
 
     # --- Heating (live mode only — rent mode passes through Nebenkosten) ---

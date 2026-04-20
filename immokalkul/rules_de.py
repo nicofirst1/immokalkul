@@ -24,7 +24,12 @@ from dataclasses import dataclass
 # ---------------------------------------------------------------------------
 # AfA (Absetzung für Abnutzung) — annual depreciation rate by build year
 # ---------------------------------------------------------------------------
-# Source: § 7 Abs. 4 EStG; confirmed by Finanzamt NRW publication
+# Source: § 7 Abs. 4 EStG; confirmed by Finanzamt NRW publication.
+# 2023+ band introduced by Jahressteuergesetz 2022 (JStG 2022) as a Wohnungs-
+# bau-Förderung — statute wording is "33⅓ Jahre Nutzungsdauer" with "3 % AfA",
+# so we treat 0.030/yr as the canonical rate and report useful life as 33⅓
+# (display rounded to 33). The engine consumes `rate`, not `useful_life`,
+# so the residual mismatch (0.030 × 33 = 0.99 ≠ 1.0) is display-only.
 def afa_rate(year_built: int) -> float:
     """Linear AfA rate (per year) on the building+capitalizable-fees basis."""
     if year_built < 1925:
@@ -32,16 +37,18 @@ def afa_rate(year_built: int) -> float:
     elif year_built < 2023:
         return 0.020   # 50 yr useful life
     else:
-        return 0.030   # 33⅓ yr useful life (2023+ Förderung)
+        return 0.030   # 33⅓ yr useful life (JStG 2022 Förderung)
 
 
 def afa_useful_life_years(year_built: int) -> int:
+    """Useful life in years. For 2023+ builds the statute says 33⅓; we
+    return the floor (33) for integer typing — see `afa_rate` docstring."""
     if year_built < 1925:
         return 40
     elif year_built < 2023:
         return 50
     else:
-        return 33
+        return 33  # statute: 33⅓ — display layer rounds
 
 
 # ---------------------------------------------------------------------------
@@ -59,7 +66,13 @@ ANSCHAFFUNGSNAH_WINDOW_YEARS = 3
 # German purchase fees (NRW)
 # ---------------------------------------------------------------------------
 GRUNDERWERBSTEUER_NRW = 0.065        # 6.5% Grunderwerbsteuer in NRW (varies by Bundesland)
-MAKLERPROVISION_TYPICAL = 0.0357     # ~3.57% incl. VAT, buyer share since 2020
+MAKLERPROVISION_TYPICAL = 0.0357     # ~3.57% incl. VAT, buyer share post-
+                                     # § 656c BGB (Bestellerprinzip extended
+                                     # to private buyers, in force since
+                                     # 23.12.2020 — Gesetz zur Verteilung der
+                                     # Maklerkosten bei der Vermittlung von
+                                     # Kaufverträgen über Wohnungen und
+                                     # Einfamilienhäuser).
 NOTARY_FEE = 0.015                    # ~1.5% notary
 GRUNDBUCH_FEE = 0.005                 # ~0.5% land registry
 NOTARY_AND_GRUNDBUCH = NOTARY_FEE + GRUNDBUCH_FEE  # 2% combined
@@ -68,7 +81,14 @@ NOTARY_AND_GRUNDBUCH = NOTARY_FEE + GRUNDBUCH_FEE  # 2% combined
 # as Anschaffungsnebenkosten that can be capitalized into AfA basis.
 # The Grundschuldbestellung portion of notary/Grundbuch is deductible
 # as Werbungskosten (Geldbeschaffungskosten), not capitalized.
-# Simplification: assume 80% of notary+Grundbuch is capitalizable.
+# Simplification: assume 80 % of notary+Grundbuch is capitalizable.
+# Realistic range is 70–90 %: cash purchases skew higher (no Grundschuld
+# entry, almost all is Auflassung/Erwerbskosten), leveraged purchases skew
+# lower (Grundschuldbestellung adds ~0.5–1 % of loan amount as Geldbeschaf-
+# fungskosten, fully Werbungskosten). 0.80 is a defensible mid-range
+# assumption — replace with a per-scenario field if your closing statement
+# shows the exact split. Source: BMF-Schreiben "Anschaffungsnebenkosten",
+# discussions at Steuerberaterkammer Westfalen-Lippe, Haufe Steuer-Office.
 NOTARY_GRUNDBUCH_AFA_SHARE = 0.80
 
 

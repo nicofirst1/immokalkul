@@ -52,31 +52,36 @@ def compute_purchase_costs(p: Property, renovation_capitalized: float = 0.0,
 def estimate_building_share(p: Property) -> float:
     """Returns the fraction of the purchase price that is building (vs. land).
 
-    Logic: if Bodenrichtwert is provided, computes:
+    If Bodenrichtwert is provided:
         land_value = bodenrichtwert × plot_size
-        building_value = price - land_value
-        share = building_value / price
-    Otherwise falls back to a property-type-aware default (apartments tend to
-    have higher building share than houses in central locations because the
-    plot is shared)."""
-    if p.bodenrichtwert_eur_per_m2 is not None:
-        land_value = p.bodenrichtwert_eur_per_m2 * p.plot_size_m2
-        # For apartments in WEG, the plot is shared — only your Miteigentumsanteil
-        # of the plot counts. A reasonable simplification: scale plot by living
-        # space / total building living space — but we don't have that data.
-        # If the user passed plot_size_m2 = living_space_m2, the calculation
-        # already assumes sole ownership; for apartments, this overestimates
-        # land value. We cap the land share at a property-type-specific max.
-        building_value = p.purchase_price - land_value
-        share = max(0.0, min(1.0, building_value / p.purchase_price))
-        # Apply caps based on property type
-        if p.property_type == "apartment":
-            share = max(share, 0.75)  # apartments rarely have <75% building share
-        else:
-            share = max(share, 0.50)  # houses rarely have <50% building share
-        return share
-    # Fallback defaults
-    return 0.80 if p.property_type == "apartment" else 0.65
+        land_share = land_value / price (clamped to [0, 1])
+        building_share = 1 - land_share
+
+    No floor — when the user gives us a Bodenrichtwert that implies the
+    land alone is worth most of the price, we honour it (with a warning).
+    Pre-fix code floored building_share at 0.75/0.50, silently inflating
+    AfA basis on land-dominant properties.
+
+    If Bodenrichtwert is None, falls back to a property-type prior
+    (apartments share the plot via Miteigentumsanteil, so they typically
+    carry a higher building share than freestanding houses).
+    """
+    if p.bodenrichtwert_eur_per_m2 is None:
+        return 0.80 if p.property_type == "apartment" else 0.65
+
+    land_value = p.bodenrichtwert_eur_per_m2 * p.plot_size_m2
+    land_share = max(0.0, min(1.0, land_value / p.purchase_price))
+    building_share = 1.0 - land_share
+    if building_share < 0.10:
+        import warnings
+        warnings.warn(
+            f"Bodenrichtwert × plot implies land is "
+            f"{land_share:.0%} of price — AfA basis is near zero. Verify "
+            f"the Bodenrichtwert via BORIS and the plot_size_m2 (apartments "
+            f"share the WEG plot via Miteigentumsanteil).",
+            stacklevel=2,
+        )
+    return building_share
 
 
 def amortization_schedule(financing: Financing, horizon_years: int) -> pd.DataFrame:
@@ -85,9 +90,18 @@ def amortization_schedule(financing: Financing, horizon_years: int) -> pd.DataFr
     Columns: year, then per-loan: <name>_balance, <name>_interest, <name>_payment,
     plus total_payment, total_interest.
 
+    Convention: German Annuitätendarlehen per § 488 BGB compounds **annually**
+    — interest is credited once per year on the opening balance, even though
+    the borrower pays monthly. This engine matches that convention. A user
+    using a monthly-compounding model would see slightly higher total
+    interest (sub-1 % over a 30-year loan).
+
     For Annuität loans, the annual payment is constant at year 1's
     `monthly_payment * 12`. For non-annuity loans, payment is
     `monthly_payment * 12` until the balance is gone.
+
+    Negative interest rates are clamped to 0 (subsidized-loan realism); a
+    runtime warning is emitted so user input errors don't pass silently.
 
     Adaptive loan logic: for any loan with `is_adaptive=True`, the annual
     payment becomes
@@ -99,7 +113,17 @@ def amortization_schedule(financing: Financing, horizon_years: int) -> pd.DataFr
     rows = []
     balances = {l.name: l.principal for l in financing.loans}
     annuities = {l.name: l.monthly_payment * 12 for l in financing.loans}
-    rates = {l.name: l.interest_rate for l in financing.loans}
+    rates = {}
+    for l in financing.loans:
+        if l.interest_rate < 0:
+            import warnings
+            warnings.warn(
+                f"Loan {l.name!r} has negative interest_rate "
+                f"{l.interest_rate:.4f}; clamping to 0.",
+                stacklevel=2)
+            rates[l.name] = 0.0
+        else:
+            rates[l.name] = l.interest_rate
     is_annuity = {l.name: l.is_annuity for l in financing.loans}
     is_adaptive = {l.name: l.is_adaptive for l in financing.loans}
 

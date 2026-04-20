@@ -171,6 +171,11 @@ def annual_tax_schedule_v2(mode: Mode,
     # Interest deduction = sum of all loan interest columns per year
     interest_cols = [c for c in amort.columns if c.endswith("_interest")]
     annual_interest_total = amort[interest_cols].sum(axis=1)
+    # Caller (cashflow.run) builds the amort frame with exactly horizon rows;
+    # fail loud if that contract is broken instead of silently zero-padding.
+    assert len(annual_interest_total) >= horizon, (
+        f"amortization schedule has {len(annual_interest_total)} rows but "
+        f"tax horizon needs {horizon}")
 
     # Per-year capex that's immediately deductible (not capitalized AND not in
     # the anschaffungsnah window-trigger case)
@@ -197,8 +202,8 @@ def annual_tax_schedule_v2(mode: Mode,
     for yr in range(1, horizon + 1):
         # Rent income (escalated)
         rent_income = base_rent_year * (1 + rent.annual_rent_escalation) ** (yr - 1)
-        # Interest deduction
-        deduct_int = float(annual_interest_total.iloc[yr - 1]) if yr - 1 < len(annual_interest_total) else 0
+        # Interest deduction (assertion above guarantees the index exists)
+        deduct_int = float(annual_interest_total.iloc[yr - 1])
         # Operating costs deduction (escalated by cost inflation)
         deduct_costs = deductible_costs_year_one_eur \
             * (1 + globals_.cost_inflation_annual) ** (yr - 1)

@@ -116,12 +116,31 @@ class CostInputs:
     """Operating cost rates that apply in both modes (with mode flags)."""
     gas_price_eur_per_kwh: float = 0.11
     electricity_price_eur_per_kwh: float = 0.35
-    grundsteuer_rate_of_price: float = 0.002
+    grundsteuer_rate_of_price: float = 0.002          # legacy proxy; kept for
+                                                       # back-compat. Real engine
+                                                       # now uses Grundstückswert
+                                                       # × land_rate (post-2025
+                                                       # Grundsteuerreform).
+    grundsteuer_land_rate: float = 0.0034             # ~0.34 % of Grundstücks-
+                                                       # wert ≈ Bodenrichtwert ×
+                                                       # plot. Bundesmodell
+                                                       # post-2025 reform; range
+                                                       # 0.20–0.50 % across
+                                                       # Bundesländer / Hebesätze.
     building_insurance_eur_per_m2_year: float = 4.0
     liability_insurance_annual: float = 150.0
     administration_monthly: float = 30.0
     municipal_charges_eur_per_m2_month: float = 0.60
-    hausgeld_monthly_for_rent: float = 375.0  # actual WEG fee (rent mode only)
+    hausgeld_monthly_for_rent: float = 375.0          # actual WEG fee (rent
+                                                       # mode only)
+    hausgeld_reserve_share: float = 0.40              # share of Hausgeld that
+                                                       # funds Erhaltungsrück-
+                                                       # lage (NOT deductible
+                                                       # until spent per § 19
+                                                       # WEG). 0.30–0.50
+                                                       # typical; remainder is
+                                                       # the deductible operating
+                                                       # portion.
 
 
 @dataclass

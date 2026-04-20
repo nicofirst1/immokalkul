@@ -65,6 +65,15 @@ def pct(x: float, decimals: int = 1) -> str:
     return f"{x*100:.{decimals}f}%"
 
 
+def afa_useful_life_label(year_built: int, useful_life_years: int) -> str:
+    """Display useful life with the statute's literal fraction for 2023+
+    builds. § 7 Abs. 4 EStG (post-JStG-2022) reads "33⅓ Jahre" — the engine
+    stores 33 (integer), so the display layer reconstructs the fraction."""
+    if year_built >= 2023:
+        return "33⅓"
+    return str(useful_life_years)
+
+
 # -----------------------------------------------------------------------------
 # Shared copy — single-sourced so Summary and Methodology can't drift
 # -----------------------------------------------------------------------------
@@ -72,8 +81,9 @@ NOT_MODELLED_MD = """\
 - **Property appreciation** — no market-price growth assumed. Equity is built purely through amortization.
 - **Loss carryforward caps** — the model applies full Verlustverrechnung at the marginal rate, but real § 10d EStG rules have annual and cumulative caps for very large losses. Fine for typical residential buy-to-let.
 - **Sonderumlagen** (WEG special assessments) — baked into the maintenance reserve rather than modelled separately.
-- **Denkmal-AfA** (§ 7i EStG) and **§ 7b Sonder-AfA** for new builds — flags exist but special rules not yet implemented.
-- **VAT / Kirchensteuer nuances** beyond the marginal rate.
+- **Denkmal-AfA** (§ 7i / § 7h EStG, 9 %/yr in years 1–8 then 7 %/yr in years 9–12 on the qualifying portion) — the `is_denkmal` flag exists but the engine doesn't apply the elevated AfA. New-build **§ 7b Sonder-AfA** (extra 5 %/yr in years 1–5 on qualifying post-2023 residential builds) — also not implemented; new-build buyers see understated tax benefit.
+- **Tax decomposition** — `marginal_tax_rate` is a single blended figure. Real tax = Einkommensteuer × (1 + Soli + Kirchensteuer); a user who enters only their Einkommensteuersatz understates effective rate by 1–3 pp.
+- **Mietpreisbremse / Kappungsgrenze** — `annual_rent_escalation` is unconstrained. §§ 556d, 558 BGB cap real-world increases (max 10 % over 3 yr in regulated markets). Honour the cap manually if your unit qualifies.
 """
 
 WALKTHROUGH_MD = """\
@@ -281,12 +291,19 @@ def sidebar_inputs():
                     "Bodenrichtwert (€/m²)",
                     value=float(s.property.bodenrichtwert_eur_per_m2 or 0),
                     step=10.0, format="%.0f",
-                    help="Land value per m² from BORIS NRW. Drives the AfA "
-                         "building/land split. Leave 0 to use property-type "
-                         "defaults.") or None
+                    help="Land value per m². Drives the AfA building/land "
+                         "split AND the Grundsteuer base (post-2025 "
+                         "Bundesmodell). Lookup: BORIS NRW for NRW, BORIS.NI "
+                         "for Lower Saxony, BayernAtlas for Bavaria, etc. — "
+                         "every Bundesland runs its own portal. Leave 0 to "
+                         "use property-type defaults.") or None
                 s.property.is_denkmal = st.checkbox(
                     "Listed building (Denkmal)", s.property.is_denkmal,
-                    help="Special AfA rules apply (§ 7i EStG — not yet fully modelled).")
+                    help="**Flag only — not yet consumed by the engine.** "
+                         "Real Denkmal AfA (§ 7i / § 7h EStG): 9 %/yr in "
+                         "years 1–8, then 7 %/yr in years 9–12 on the "
+                         "qualifying portion. Not modelled here; consult a "
+                         "Steuerberater for an accurate tax projection.")
 
         # --- Financing ---
         with st.expander("💰 Financing", expanded=False):
@@ -412,6 +429,12 @@ def sidebar_inputs():
                 step=0.1, format="%.1f%%",
                 help="Assumed yearly rent growth. German rents are capped by "
                      "Mietspiegel / Mietpreisbremse — 1.5-2.5% is typical.") / 100
+            if s.rent.annual_rent_escalation * 3 > 0.10:
+                st.caption(
+                    "⚠ Implied 3-yr increase exceeds 10 % — over the "
+                    "Kappungsgrenze (§ 558 BGB) for regulated markets. "
+                    "Honour the cap manually if your unit qualifies for "
+                    "Mietpreisbremse.")
             s.rent.expected_vacancy_months_per_year = st.slider(
                 "Vacancy (months/year)", 0.0, 3.0,
                 value=float(s.rent.expected_vacancy_months_per_year), step=0.05,
@@ -479,13 +502,15 @@ def sidebar_inputs():
                          "chimney sweep. Typical range: €0.40-0.80/m²/month "
                          "depending on Kommune.")
             with st.expander("🏛 Property tax & insurance", expanded=False):
-                c.grundsteuer_rate_of_price = st.slider(
-                    "Property tax rate (Grundsteuer, % of price)", 0.0, 1.0,
-                    value=float(c.grundsteuer_rate_of_price) * 100,
+                c.grundsteuer_land_rate = st.slider(
+                    "Grundsteuer rate (% of land value)", 0.0, 1.0,
+                    value=float(c.grundsteuer_land_rate) * 100,
                     step=0.01, format="%.2f%%",
-                    help="Property tax as a share of purchase price. Since the "
-                         "2025 Grundsteuer reform, 0.15–0.35% is typical "
-                         "depending on Bundesland; 0.2% is a safe default.") / 100
+                    help="Post-2025 Bundesmodell: tax base is the "
+                         "Grundstückswert (land value), not the whole price. "
+                         "Engine uses Bodenrichtwert × plot when available. "
+                         "0.20–0.50 % typical depending on Bundesland + "
+                         "Hebesatz; 0.34 % is a safe default.") / 100
                 c.building_insurance_eur_per_m2_year = st.number_input("Building insurance €/m²/yr",
                     value=float(c.building_insurance_eur_per_m2_year), step=0.5, format="%.1f",
                     help="Wohngebäudeversicherung — covers fire, storm, water "
@@ -501,6 +526,16 @@ def sidebar_inputs():
                     value=float(c.hausgeld_monthly_for_rent), step=10.0, format="%.0f",
                     help="Monthly WEG fee for shared common areas. Typical: "
                          "€2.50–4.50 per m². Set 0 for a freestanding house.")
+                c.hausgeld_reserve_share = st.slider(
+                    "Hausgeld reserve share (Erhaltungsrücklage portion)",
+                    0.0, 100.0,
+                    value=float(c.hausgeld_reserve_share) * 100,
+                    step=5.0, format="%.0f%%",
+                    help="Share of Hausgeld funding the Erhaltungsrücklage "
+                         "(§ 19 WEG). Not deductible against rental income "
+                         "until actually spent on repairs. The remainder is "
+                         "the operating portion (Werbungskosten, deductible). "
+                         "30–50 % typical; 40 % default.") / 100
                 c.administration_monthly = st.number_input("Administration (€/mo)",
                     value=float(c.administration_monthly), step=5.0, format="%.0f",
                     help="Verwalterhonorar or self-landlord admin costs (accounting, "
@@ -533,8 +568,12 @@ def sidebar_inputs():
                 "Marginal tax rate (Grenzsteuersatz)", 10.0, 55.0,
                 value=float(g.marginal_tax_rate) * 100,
                 step=1.0, format="%.0f%%",
-                help="Your top German income-tax rate. Roughly 30% at €35k, "
-                     "42% above €68k single.") / 100
+                help="Blended top tax rate. Roughly 30 % at €35k, 42 % above "
+                     "€68k single. **Enter the effective rate** = "
+                     "Einkommensteuer × (1 + Soli + Kirchensteuer): for a "
+                     "42 % ESt + 5.5 % Soli + 9 % Kirche, the effective "
+                     "marginal rate is ~48 %. The engine doesn't decompose; "
+                     "a single blended number is enough.") / 100
             g.horizon_years = int(st.slider(
                 "Horizon (years)", 10, 60, value=int(g.horizon_years),
                 help="How far out to project. **50 years is the convention** "
@@ -943,7 +982,8 @@ def tab_summary(result, s: Scenario, afford: dict):
             st.write(f"**+ Capitalized fees:** {eur(a.capitalized_fees)}")
             st.write(f"**= AfA basis:** {eur(a.total_basis)}")
             st.write(f"**× Rate:** {pct(a.afa_rate, 2)} "
-                      f"({a.useful_life_years}-year life — "
+                      f"({afa_useful_life_label(s.property.year_built, a.useful_life_years)}"
+                      f"-year life — "
                       f"{'pre-1925 Altbau' if s.property.year_built < 1925 else 'post-1925'})")
             st.write(f"**= Annual AfA:** {eur(a.annual_afa)}")
 
@@ -1049,6 +1089,9 @@ def _mode_summary_block(result, s: Scenario):
 def tab_cashflow(result, s: Scenario):
     """50-year cashflow detail."""
     st.markdown(f"## Cash flow  :violet-background[{s.mode.upper()} mode]")
+    st.caption("All flows are aggregated **at year-end** (Dec 31). A bank "
+               "statement breaks them out monthly — sub-year timing "
+               "differences are by design.")
     cf = result.cashflow
 
     fig = go.Figure()
@@ -1354,7 +1397,9 @@ def tab_tax(result, s: Scenario):
               f"(Grunderwerb + Makler + 80% of Notar, × building share)")
     st.write(f"**Capitalized renovation:** {eur(a.capitalized_renovation)}")
     st.write(f"**Total AfA basis:** {eur(a.total_basis)}")
-    st.write(f"**AfA rate:** {pct(a.afa_rate, 2)} ({a.useful_life_years}-year useful life)")
+    st.write(f"**AfA rate:** {pct(a.afa_rate, 2)} "
+              f"({afa_useful_life_label(s.property.year_built, a.useful_life_years)}"
+              "-year useful life)")
     st.write(f"**Annual AfA deduction:** **{eur(a.annual_afa)}**")
 
     st.markdown("### Annual tax computation")
@@ -1388,6 +1433,17 @@ def tab_tax(result, s: Scenario):
     st.markdown(f"**Total tax over {s.globals.horizon_years} years:** "
                  f"{eur(float(tx['tax_owed'].sum()))}")
     st.markdown(f"**Marginal rate applied:** {pct(s.globals.marginal_tax_rate)}")
+
+    if s.globals.horizon_years > a.useful_life_years:
+        st.caption(
+            f"⚠ Real § 7 EStG stops AfA after the "
+            f"{a.useful_life_years}-year useful life — total deduction "
+            "should equal the full basis exactly once. **This model keeps "
+            f"deducting AfA for the full {s.globals.horizon_years}-year "
+            f"horizon**, which over-depreciates the basis by "
+            f"{(s.globals.horizon_years - a.useful_life_years) * a.afa_rate * 100:.0f}% "
+            "across the residual years and understates late-year tax. "
+            "Tighten the horizon to the useful life for an exact match.")
 
     with st.expander("📊 Annual tax table"):
         st.dataframe(tx.style.format("€{:,.0f}"), width="stretch", height=400)
@@ -1662,6 +1718,8 @@ This tool computes German property finance for both **live** (owner-occupied) an
 **Bank loan** — German Annuitätendarlehen logic:
 - Annual annuity = principal × (interest rate + initial repayment rate)
 - Constant payment; principal portion grows over time as interest portion shrinks
+- Interest compounds **annually** (matching § 488 BGB convention) — interest is credited once per year on the opening balance even though payments arrive monthly. A monthly-compounding model would show ~0.5–1 % more total interest over a 30-year loan.
+- Negative loan rates are clamped to 0 with a runtime warning (subsidized-loan realism).
 
 **Component lifecycles** — based on paritätische Lebensdauertabelle (HEV/MV) and Sparkasse references:
 - Heating: 20 yr; Roof: 40 yr; Façade paint: 12 yr; Windows: 30 yr; Bathroom: 28 yr; Electrical: 35 yr; Plumbing: 45 yr; etc.
@@ -1751,12 +1809,14 @@ financing:
 costs:
   gas_price_eur_per_kwh: 0.11
   electricity_price_eur_per_kwh: 0.35
-  grundsteuer_rate_of_price: 0.002      # 0.15-0.35 % typical post-2025 reform
+  grundsteuer_rate_of_price: 0.002      # legacy proxy, kept for back-compat
+  grundsteuer_land_rate: 0.0034         # 0.20-0.50 % typical post-2025 reform
   building_insurance_eur_per_m2_year: 4.0
   liability_insurance_annual: 150.0
   administration_monthly: 30.0
   municipal_charges_eur_per_m2_month: 0.60
   hausgeld_monthly_for_rent: 350        # apartments only; set 0 for freestanding houses
+  hausgeld_reserve_share: 0.40          # § 19 WEG portion; not deductible until spent
 
 rent:
   monthly_rent: 1500                    # expected Kaltmiete
